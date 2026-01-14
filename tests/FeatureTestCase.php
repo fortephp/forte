@@ -30,7 +30,7 @@ class FeatureTestCase extends ForteTestCase
     {
         parent::getEnvironmentSetUp($app);
 
-        $base = realpath(__DIR__.'\\Fixtures\\app');
+        $base = realpath(__DIR__.'/Fixtures/app');
         if ($base) {
             $app->setBasePath($base);
         }
@@ -41,10 +41,7 @@ class FeatureTestCase extends ForteTestCase
             @mkdir($compiled, 0755, true);
         }
 
-        $app['config']->set('view.paths', [
-            resource_path('views'),
-            __DIR__.'/Fixtures/app',
-        ]);
+        $app['config']->set('view.paths', [resource_path('views')]);
         $app['config']->set('view.compiled', $compiled);
 
         $app['router']->get('/app', fn () => view('app'));
