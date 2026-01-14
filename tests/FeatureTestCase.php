@@ -30,7 +30,7 @@ class FeatureTestCase extends ForteTestCase
     {
         parent::getEnvironmentSetUp($app);
 
-        $base = realpath(__DIR__.'\\Fixtures\\app');
+        $base = realpath(__DIR__.'/Fixtures/app');
         if ($base) {
             $app->setBasePath($base);
         }
