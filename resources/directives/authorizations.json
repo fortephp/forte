@@ -1,0 +1,77 @@
+[
+    {
+      "name": "can",
+      "args": true,
+      "structure": {
+        "role": "open",
+        "condition": true,
+        "terminators": "elsecan,endcan"
+      }
+    },
+    {
+      "name": "elsecan",
+      "args": true,
+      "structure": {
+        "role": "mixed",
+        "terminators": "elsecan,endcan"
+      }
+    },
+    {
+      "name": "endcan",
+      "args": false,
+      "structure": {
+        "role": "close",
+        "condition": true
+      }
+    },
+    {
+      "name": "cannot",
+      "args": true,
+      "structure": {
+        "role": "open",
+        "condition": true,
+        "terminators": "elsecannot,endcannot"
+      }
+    },
+    {
+      "name": "elsecannot",
+      "args": true,
+      "structure": {
+        "role": "mixed",
+        "terminators": "elsecannot,endcannot"
+      }
+    },
+    {
+      "name": "endcannot",
+      "args": false,
+      "structure": {
+        "role": "close",
+        "condition": true
+      }
+    },
+    {
+      "name": "canany",
+      "args": true,
+      "structure": {
+        "role": "open",
+        "condition": true,
+        "terminators": "elsecanany,endcanany"
+      }
+    },
+    {
+      "name": "elsecanany",
+      "args": true,
+      "structure": {
+        "role": "mixed",
+        "terminators": "elsecanany,endcanany"
+      }
+    },
+    {
+      "name": "endcanany",
+      "args": false,
+      "structure": {
+        "role": "close",
+        "condition": true
+      }
+    }
+]

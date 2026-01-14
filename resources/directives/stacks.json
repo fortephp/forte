@@ -1,0 +1,45 @@
+[
+  {
+    "name": "stack",
+    "args": true
+  },
+  {
+    "name": "push",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endpush,endpushOnce"
+    }
+  },
+  {
+    "name": "endpush,endpushOnce,endpreprend,endprependOnce",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  },
+  {
+    "name": "pushOnce",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endpush,endpushOnce"
+    }
+  },
+  {
+    "name": "prepend",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endprepend,endprependOnce"
+    }
+  },
+  {
+    "name": "prependOnce",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endprepend,endprependOnce"
+    }
+  }
+]

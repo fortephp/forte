@@ -1,0 +1,17 @@
+[
+  {
+    "name": "while",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endwhile"
+    }
+  },
+  {
+    "name": "endwhile",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

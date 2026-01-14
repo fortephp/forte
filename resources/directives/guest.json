@@ -1,0 +1,27 @@
+[
+  {
+    "name": "guest",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseGuest,endGuest"
+    }
+  },
+  {
+    "name": "elseGuest",
+    "args": true,
+    "structure": {
+      "role": "mixed",
+      "terminators": "elseGuest,endGuest"
+    }
+  },
+  {
+    "name": "endGuest",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  }
+]

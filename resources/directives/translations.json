@@ -1,0 +1,21 @@
+[
+  {
+    "name": "lang",
+    "structure": {
+      "role": "conditional_pair",
+      "terminators": "endlang",
+      "pairing_strategy": "lang_style"
+    }
+  },
+  {
+    "name": "choice",
+    "args": true
+  },
+  {
+    "name": "endlang",
+    "args": false,
+    "structure": {
+      "role": "conditional_close"
+    }
+  }
+]

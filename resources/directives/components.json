@@ -1,0 +1,37 @@
+[
+  {
+    "name": "props,aware",
+    "args": true
+  },
+  {
+    "name": "component",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endComponent,endComponentClass"
+    }
+  },
+  {
+    "name": "endComponent,endComponentClass,endSlot,endComponentFirst",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  },
+  {
+    "name": "slot",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endSlot"
+    }
+  },
+  {
+    "name": "componentFirst",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endComponentFirst"
+    }
+  }
+]

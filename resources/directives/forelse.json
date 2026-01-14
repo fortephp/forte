@@ -1,0 +1,22 @@
+[
+  {
+    "name": "forelse",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endforelse",
+      "branches": "empty"
+    }
+  },
+  {
+    "name": "empty",
+    "args": false
+  },
+  {
+    "name": "endforelse",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

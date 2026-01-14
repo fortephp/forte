@@ -1,0 +1,17 @@
+[
+  {
+    "name": "for",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endfor"
+    }
+  },
+  {
+    "name": "endfor",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

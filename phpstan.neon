@@ -1,0 +1,15 @@
+parameters:
+    level: 10
+    paths:
+        - src
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        -
+            identifier: assign.propertyType
+            paths:
+                - src/Parser/*
+                - src/Rewriting/*
+        -
+            identifier: offsetAccess.notFound
+            path: src/Parser/*

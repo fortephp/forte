@@ -1,0 +1,17 @@
+[
+  {
+    "name": "foreach",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endforeach"
+    }
+  },
+  {
+    "name": "endforeach",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

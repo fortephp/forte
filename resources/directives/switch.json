@@ -1,0 +1,42 @@
+[
+  {
+    "name": "switch",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "type": "switch"
+    }
+  },
+  {
+    "name": "case",
+    "args": true,
+    "structure": {
+      "role": "branch",
+      "parent": "switch"
+    }
+  },
+  {
+    "name": "default",
+    "args": false,
+    "structure": {
+      "role": "branch",
+      "parent": "switch"
+    }
+  },
+  {
+    "name": "break",
+    "args": false,
+    "structure": {
+      "role": "branch_terminator",
+      "parent": "switch",
+      "optional": true
+    }
+  },
+  {
+    "name": "endSwitch",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

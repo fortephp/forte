@@ -1,0 +1,22 @@
+[
+  {
+    "name": "extends,extendsFirst,parent,yield",
+    "args": true
+  },
+  {
+    "name": "section",
+    "args": true,
+    "structure": {
+      "role": "conditional_pair",
+      "terminators": "show,append,overwrite,stop,endsection",
+      "pairing_strategy": "section_style"
+    }
+  },
+  {
+    "name": "show,append,overwrite,stop,endSection",
+    "args": false,
+    "structure": {
+      "role": "conditional_close"
+    }
+  }
+]

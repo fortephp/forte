@@ -1,0 +1,50 @@
+{
+    "name": "fortephp/forte",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "blade parser"
+    ],
+    "authors": [
+        {
+            "name": "John Koster",
+            "email": "john@stillat.com"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^11 || ^12.0",
+        "ext-dom": "*"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.2 || ^10.0",
+        "pestphp/pest": "^3",
+        "laravel/pint": "^1.22",
+        "spatie/laravel-ray": "^1.38",
+        "phpstan/phpstan": "^2.1",
+        "rector/rector": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Forte\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Forte\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Forte\\ServiceProvider"
+            ]
+        }
+    }
+}

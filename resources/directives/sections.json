@@ -1,0 +1,27 @@
+[
+  {
+    "name": "hasSection,sectionMissing",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endif"
+    }
+  },
+  {
+    "name": "elseif",
+    "args": true,
+    "structure": {
+      "role": "mixed",
+      "terminators": "elseif,endif"
+    }
+  },
+  {
+    "name": "endif",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  }
+]

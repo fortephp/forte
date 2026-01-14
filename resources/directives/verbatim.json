@@ -1,0 +1,17 @@
+[
+  {
+    "name": "verbatim",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endVerbatim"
+    }
+  },
+  {
+    "name": "endVerbatim",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

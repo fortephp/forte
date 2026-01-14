@@ -1,0 +1,17 @@
+[
+  {
+    "name": "fragment",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endfragment"
+    }
+  },
+  {
+    "name": "endfragment",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

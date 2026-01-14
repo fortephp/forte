@@ -1,0 +1,103 @@
+[
+  {
+    "name": "if",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endif"
+    }
+  },
+  {
+    "name": "elseif",
+    "args": true,
+    "structure": {
+      "role": "mixed",
+      "terminators": "elseif,endif"
+    }
+  },
+  {
+    "name": "else",
+    "args": false,
+    "structure": {
+      "role": "mixed",
+      "terminators": "endif"
+    }
+  },
+  {
+    "name": "endif",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  },
+  {
+    "name": "unless",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endunless"
+    }
+  },
+  {
+    "name": "endunless",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  },
+  {
+    "name": "isset",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endIsset"
+    }
+  },
+  {
+    "name": "endIsset",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  },
+  {
+    "name": "once",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endOnce"
+    }
+  },
+  {
+    "name": "endOnce",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  },
+  {
+    "name": "pushIf",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endPushIf"
+    }
+  },
+  {
+    "name": "endPushIf",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
+  }
+]
