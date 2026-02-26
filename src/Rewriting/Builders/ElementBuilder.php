@@ -8,7 +8,7 @@ use Forte\Parser\NodeKind;
 
 class ElementBuilder extends NodeBuilder implements WrapperBuilder
 {
-    /** @var array<string, string|true> */
+    /** @var list<array{0: string, 1: string|true}> */
     private array $attributes = [];
 
     /** @var array<string, string> */
@@ -24,21 +24,50 @@ class ElementBuilder extends NodeBuilder implements WrapperBuilder
     public function __construct(private readonly string $tagName) {}
 
     /**
-     * Set an attribute value.
+     * Set an attribute value. Overwrites any existing attribute with the same name.
      */
     public function attr(string $name, string $value): self
     {
-        $this->attributes[$name] = $value;
+        foreach ($this->attributes as $i => [$existingName]) {
+            if ($existingName === $name) {
+                $this->attributes[$i] = [$name, $value];
+
+                return $this;
+            }
+        }
+
+        $this->attributes[] = [$name, $value];
 
         return $this;
     }
 
     /**
-     * Set a boolean attribute.
+     * Set a boolean attribute. Overwrites any existing attribute with the same name.
      */
     public function boolAttr(string $name): self
     {
-        $this->attributes[$name] = true;
+        foreach ($this->attributes as $i => [$existingName]) {
+            if ($existingName === $name) {
+                $this->attributes[$i] = [$name, true];
+
+                return $this;
+            }
+        }
+
+        $this->attributes[] = [$name, true];
+
+        return $this;
+    }
+
+    /**
+     * Append an attribute without checking for duplicates.
+     *
+     * Used internally for element reconstruction where duplicate
+     * attribute names must be preserved.
+     */
+    public function appendAttr(string $name, string|true $value): self
+    {
+        $this->attributes[] = [$name, $value];
 
         return $this;
     }
@@ -74,12 +103,14 @@ class ElementBuilder extends NodeBuilder implements WrapperBuilder
      */
     public function addClass(string $class): self
     {
-        $existing = $this->attributes['class'] ?? '';
-        if ($existing === true) {
-            $existing = '';
+        $existing = '';
+        foreach ($this->attributes as [$name, $value]) {
+            if ($name === 'class' && $value !== true) {
+                $existing = $value;
+            }
         }
 
-        $classes = array_filter(explode(' ', (string) $existing));
+        $classes = array_filter(explode(' ', $existing));
         if (! in_array($class, $classes, true)) {
             $classes[] = $class;
         }
@@ -148,7 +179,7 @@ class ElementBuilder extends NodeBuilder implements WrapperBuilder
     {
         $output = '<'.$this->tagName;
 
-        foreach ($this->attributes as $name => $value) {
+        foreach ($this->attributes as [$name, $value]) {
             if ($value === true) {
                 $output .= ' '.$name;
             } else {
@@ -183,7 +214,7 @@ class ElementBuilder extends NodeBuilder implements WrapperBuilder
     }
 
     /**
-     * @return array<string, string|true>
+     * @return list<array{0: string, 1: string|true}>
      */
     public function getAttributes(): array
     {
@@ -222,7 +253,7 @@ class ElementBuilder extends NodeBuilder implements WrapperBuilder
         $output = '<'.$this->tagName;
 
         // Standard attributes
-        foreach ($this->attributes as $name => $value) {
+        foreach ($this->attributes as [$name, $value]) {
             if ($value === true) {
                 $output .= ' '.$name;
             } else {

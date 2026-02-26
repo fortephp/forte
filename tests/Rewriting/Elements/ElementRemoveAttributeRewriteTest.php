@@ -33,4 +33,14 @@ describe('Element RemoveAttributes', function (): void {
             ->and($result)->not->toContain('onmouseover')
             ->and($result)->toContain('id="keep"');
     });
+
+    it('preserves bound and escaped sibling attributes', function (): void {
+        $doc = $this->parse('<div data-x="1" :class="$cls" ::style="raw">content</div>');
+
+        $result = $doc->apply(new RemoveAttributes('div', ['data-*']))->render();
+
+        expect($result)->not->toContain('data-x')
+            ->and($result)->toContain(':class="$cls"')
+            ->and($result)->toContain('::style="raw"');
+    });
 });

@@ -28,4 +28,22 @@ describe('Element AddClass', function (): void {
 
         expect($result)->toContain('class="touched"');
     });
+
+    it('preserves bound :class sibling when adding class', function (): void {
+        $doc = $this->parse('<div class="a" :class="$b">content</div>');
+
+        $result = $doc->apply(new AddClass('div', 'c'))->render();
+
+        expect($result)->toContain('class="a c"')
+            ->and($result)->toContain(':class="$b"');
+    });
+
+    it('preserves escaped ::class sibling when adding class', function (): void {
+        $doc = $this->parse('<div ::class="raw">content</div>');
+
+        $result = $doc->apply(new AddClass('div', 'added'))->render();
+
+        expect($result)->toContain('::class="raw"')
+            ->and($result)->toContain('class="added"');
+    });
 });

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Forte\Rewriting;
 
 use Forte\Ast\Document\Document;
-use Forte\Ast\Elements\Attribute;
 use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\Node;
 use Forte\Parser\NodeKind;
@@ -397,29 +396,6 @@ class Rewriter implements AstRewriter
         }
     }
 
-    /**
-     * @return array<string, string|true>
-     */
-    private function getElementAttributes(ElementNode $element, Document $doc): array
-    {
-        $meta = $doc->getSyntheticMeta($element->index());
-
-        if ($meta !== null && isset($meta['attributes']) && is_array($meta['attributes'])) {
-            /** @var array<string, string|true> */
-            return $meta['attributes'];
-        }
-
-        $attrs = [];
-        /** @var Attribute $attr */
-        foreach ($element->attributes() as $attr) {
-            $name = $attr->nameText();
-            $value = $attr->valueText();
-            $attrs[$name] = $value ?? true;
-        }
-
-        return $attrs;
-    }
-
     private function shouldModifyElement(Node $node, ?Operation $operation): bool
     {
         return $operation !== null
@@ -437,27 +413,79 @@ class Rewriter implements AstRewriter
     ): ElementBuilder {
         $tagName = $operation->newTagName ?? $element->tagNameText();
         $spec = Builder::element($tagName);
-        $existing = $this->getElementAttributes($element, $sourceDoc);
 
-        foreach ($existing as $name => $value) {
-            if (array_key_exists($name, $operation->attributeChanges)) {
-                $change = $operation->attributeChanges[$name];
+        $meta = $sourceDoc->getSyntheticMeta($element->index());
+        $isSynthetic = $meta !== null && isset($meta['attributes']) && is_array($meta['attributes']);
 
-                if ($change === null) {
+        if ($isSynthetic) {
+            /** @var list<array{0: string, 1: string|true}> $existing */
+            $existing = $meta['attributes'];
+            $handledChanges = [];
+            $seenNames = [];
+
+            foreach ($existing as [$name, $value]) {
+                if (array_key_exists($name, $operation->attributeChanges)) {
+                    $change = $operation->attributeChanges[$name];
+
+                    if ($change === null) {
+                        continue;
+                    }
+
+                    if (isset($handledChanges[$name])) {
+                        continue;
+                    }
+
+                    $handledChanges[$name] = true;
+                    $value = $change;
+                }
+
+                $seenNames[$name] = true;
+
+                $spec->appendAttr($name, $value);
+            }
+
+            foreach ($operation->attributeChanges as $name => $value) {
+                if ($value !== null && ! isset($seenNames[$name])) {
+                    $spec->appendAttr($name, $value);
+                }
+            }
+        } else {
+            $handledChanges = [];
+            $seenNames = [];
+
+            foreach ($element->attributes() as $attr) {
+                $rawName = $attr->rawName();
+
+                if ($rawName === '') {
                     continue;
                 }
 
-                $value = $change;
+                $value = $attr->valueText() ?? true;
+
+                if (array_key_exists($rawName, $operation->attributeChanges)) {
+                    $change = $operation->attributeChanges[$rawName];
+
+                    if ($change === null) {
+                        continue;
+                    }
+
+                    if (isset($handledChanges[$rawName])) {
+                        continue;
+                    }
+
+                    $handledChanges[$rawName] = true;
+                    $value = $change;
+                }
+
+                $seenNames[$rawName] = true;
+
+                $spec->appendAttr($rawName, $value);
             }
 
-            $value === true
-                ? $spec->boolAttr($name)
-                : $spec->attr($name, (string) $value);
-        }
-
-        foreach ($operation->attributeChanges as $name => $value) {
-            if ($value !== null && ! array_key_exists($name, $existing)) {
-                $spec->attr($name, $value);
+            foreach ($operation->attributeChanges as $name => $value) {
+                if ($value !== null && ! isset($seenNames[$name])) {
+                    $spec->appendAttr($name, $value);
+                }
             }
         }
 

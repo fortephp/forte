@@ -28,4 +28,26 @@ describe('Rename Element', function (): void {
 
         expect($result)->toBe('<new-name>content</new-name>');
     });
+
+    it('preserves bound and escaped attributes when renaming', function (): void {
+        $doc = $this->parse('<div :class="$cls" ::style="raw" disabled>content</div>');
+
+        $result = $doc->apply(new RenameTag('div', 'section'))->render();
+
+        expect($result)->toContain('<section')
+            ->and($result)->toContain(':class="$cls"')
+            ->and($result)->toContain('::style="raw"')
+            ->and($result)->toContain('disabled')
+            ->and($result)->toContain('</section>');
+    });
+
+    it('preserves attributes on void element rename', function (): void {
+        $doc = $this->parse('<input :value="$val" type="text">');
+
+        $result = $doc->apply(new RenameTag('input', 'custom-input'))->render();
+
+        expect($result)->toContain('<custom-input')
+            ->and($result)->toContain(':value="$val"')
+            ->and($result)->toContain('type="text"');
+    });
 });
