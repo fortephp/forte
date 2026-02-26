@@ -55,7 +55,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves other attribute syntax', function () {
+        it('preserves other attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" :user="$user"><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -67,7 +67,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr :user="$user"><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('does not leak prefixes into other attribute types', function () {
+        it('does not leak prefixes into other attribute types', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" class="one" :class="two" class="three"><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -79,7 +79,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr class="one" :class="two" class="three"><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves shorthand variable attribute syntax', function () {
+        it('preserves shorthand variable attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" :$user><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -91,7 +91,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr :$user><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves boolean attribute syntax', function () {
+        it('preserves boolean attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" attribute><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -103,7 +103,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr attribute><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves static attribute syntax', function () {
+        it('preserves static attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" attribute="value"><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -115,7 +115,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr attribute="value"><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves escaped attribute syntax', function () {
+        it('preserves escaped attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" ::attribute="value"><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;
@@ -127,7 +127,7 @@ describe('Foreach Attribute Rewriter', function (): void {
                 ->toBe('@foreach($users->active() as $user)<tr ::attribute="value"><td>{{ $user->name }}</td></tr>@endforeach');
         });
 
-        it('preserves triple-colon attribute syntax', function () {
+        it('preserves triple-colon attribute syntax', function (): void {
             $doc = $this->parse('<tr #foreach="$users->active() as $user" :::attribute="value"><td>{{ $user->name }}</td></tr>');
 
             $rewriter = new Rewriter;

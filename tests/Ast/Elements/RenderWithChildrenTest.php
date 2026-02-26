@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Forte\Ast\Components\ComponentNode;
 use Forte\Parser\ParserOptions;
 
-describe('Element Rendering - Custom Content', function () {
+describe('Element Rendering - Custom Content', function (): void {
     describe('Opening Tag', function (): void {
         it('returns opening tag for simple element', function (): void {
             $el = $this->parseElement('<div>content</div>');
