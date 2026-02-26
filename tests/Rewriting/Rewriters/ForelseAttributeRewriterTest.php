@@ -44,6 +44,56 @@ describe('Forelse Attribute Rewriter', function (): void {
         });
     });
 
+    describe('attribute preservation', function (): void {
+        it('preserves bound attribute on forelse element', function (): void {
+            $doc = $this->parse('<li #forelse="$users as $user" :class="$class">{{ $user }}</li><li #empty>None</li>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@forelse($users as $user)<li :class="$class">{{ $user }}</li>@empty<li>None</li>@endforelse');
+        });
+
+        it('preserves escaped attribute on forelse element', function (): void {
+            $doc = $this->parse('<li #forelse="$users as $user" ::class="rawValue">{{ $user }}</li><li #empty>None</li>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@forelse($users as $user)<li ::class="rawValue">{{ $user }}</li>@empty<li>None</li>@endforelse');
+        });
+
+        it('preserves shorthand variable attribute on forelse element', function (): void {
+            $doc = $this->parse('<li #forelse="$users as $user" :$user>{{ $user }}</li><li #empty>None</li>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@forelse($users as $user)<li :$user>{{ $user }}</li>@empty<li>None</li>@endforelse');
+        });
+
+        it('preserves bound attribute on empty element', function (): void {
+            $doc = $this->parse('<li #forelse="$users as $user">{{ $user }}</li><div #empty :class="$emptyClass">None</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@forelse($users as $user)<li>{{ $user }}</li>@empty<div :class="$emptyClass">None</div>@endforelse');
+        });
+    });
+
     describe('#forelse without #empty', function (): void {
         it('transforms standalone #forelse', function (): void {
             $doc = $this->parse('<li #forelse="$users as $user">{{ $user->name }}</li>');

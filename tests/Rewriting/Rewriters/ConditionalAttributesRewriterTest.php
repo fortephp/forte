@@ -55,6 +55,54 @@ describe('Conditional Attributes Rewriter', function (): void {
                 ->toBe('@if($show)<div>content</div>@endif');
         });
 
+        it('preserves bound attribute syntax', function (): void {
+            $doc = $this->parse('<div #if="$show" :class="$classes">content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($show)<div :class="$classes">content</div>@endif');
+        });
+
+        it('preserves escaped attribute syntax', function (): void {
+            $doc = $this->parse('<div #if="$show" ::class="rawValue">content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($show)<div ::class="rawValue">content</div>@endif');
+        });
+
+        it('preserves shorthand variable attribute syntax', function (): void {
+            $doc = $this->parse('<div #if="$show" :$user>content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($show)<div :$user>content</div>@endif');
+        });
+
+        it('preserves boolean attribute syntax', function (): void {
+            $doc = $this->parse('<div #if="$show" disabled>content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($show)<div disabled>content</div>@endif');
+        });
+
         it('works with nested elements', function (): void {
             $doc = $this->parse('<div #if="$outer"><span #if="$inner">nested</span></div>');
 
