@@ -144,7 +144,6 @@ class RewriteContext
     /**
      * Get the effective attribute value for an element, considering pending changes.
      *
-     * Returns the pending value if queued, otherwise the original element's value.
      * Returns null if the attribute doesn't exist or is marked for removal.
      */
     public function getEffectiveAttribute(ElementNode $element, string $name): ?string
@@ -152,12 +151,16 @@ class RewriteContext
         $op = $this->operations[$element->index()] ?? null;
 
         if ($op !== null && array_key_exists($name, $op->attributeChanges)) {
-            // Return the pending value (null if marked for removal)
             return $op->attributeChanges[$name];
         }
 
-        // There are no pending changes, return the original.
-        return $element->getAttribute($name);
+        foreach ($element->attributes() as $attr) {
+            if ($attr->rawName() === $name) {
+                return $attr->valueText();
+            }
+        }
+
+        return null;
     }
 
     /**

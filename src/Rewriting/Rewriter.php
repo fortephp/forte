@@ -454,36 +454,32 @@ class Rewriter implements AstRewriter
             $seenNames = [];
 
             foreach ($element->attributes() as $attr) {
-                $strippedName = $attr->nameText();
+                $rawName = $attr->rawName();
 
-                if ($strippedName === '') {
+                if ($rawName === '') {
                     continue;
                 }
 
-                $rawName = $attr->rawName();
                 $value = $attr->valueText() ?? true;
 
-                if (array_key_exists($strippedName, $operation->attributeChanges)) {
-                    $change = $operation->attributeChanges[$strippedName];
+                if (array_key_exists($rawName, $operation->attributeChanges)) {
+                    $change = $operation->attributeChanges[$rawName];
 
                     if ($change === null) {
                         continue;
                     }
 
-                    if (isset($handledChanges[$strippedName])) {
+                    if (isset($handledChanges[$rawName])) {
                         continue;
                     }
 
-                    $handledChanges[$strippedName] = true;
+                    $handledChanges[$rawName] = true;
                     $value = $change;
-                    $outputName = $strippedName;
-                } else {
-                    $outputName = $rawName;
                 }
 
-                $seenNames[$strippedName] = true;
+                $seenNames[$rawName] = true;
 
-                $spec->appendAttr($outputName, $value);
+                $spec->appendAttr($rawName, $value);
             }
 
             foreach ($operation->attributeChanges as $name => $value) {

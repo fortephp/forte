@@ -331,4 +331,42 @@ describe('Conditional Attributes Rewriter', function (): void {
                 ->toBe('<div>@if($a)<span>A</span>@else<span>B</span>@endif</div><div>@if($c)<span>C</span>@else<span>D</span>@endif</div>');
         });
     });
+
+    describe('duplicate stripped name preservation', function (): void {
+        it('preserves both static and bound class on #if element', function (): void {
+            $doc = $this->parse('<div #if="$show" class="a" :class="$b">content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($show)<div class="a" :class="$b">content</div>@endif');
+        });
+
+        it('preserves bound attribute on #else element', function (): void {
+            $doc = $this->parse('<div #if="$a">A</div><div #else :class="$cls">B</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($a)<div>A</div>@else<div :class="$cls">B</div>@endif');
+        });
+
+        it('preserves multiple prefix types on #else-if element', function (): void {
+            $doc = $this->parse('<div #if="$a">A</div><div #else-if="$b" class="x" :class="$y" ::style="raw">B</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ConditionalAttributesRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@if($a)<div>A</div>@elseif($b)<div class="x" :class="$y" ::style="raw">B</div>@endif');
+        });
+    });
 });

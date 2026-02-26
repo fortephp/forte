@@ -287,4 +287,32 @@ describe('Forelse Attribute Rewriter', function (): void {
                 ->toBe('@forelse($groups as $group)<div>@forelse($group->items as $item)<span>{{ $item }}</span>@endforelse</div>@empty<div>No groups</div>@endforelse');
         });
     });
+
+    describe('duplicate stripped name preservation', function (): void {
+        it('preserves both static and bound class on forelse element', function (): void {
+            $doc = $this->parse('<li #forelse="$items as $item" class="a" :class="$b">{{ $item }}</li><li #empty>None</li>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('@forelse($items as $item)<li class="a" :class="$b">{{ $item }}</li>@empty<li>None</li>@endforelse');
+        });
+
+        it('preserves bound attribute on void forelse element', function (): void {
+            $doc = $this->parse('<input #forelse="$fields as $field" :value="$field" type="text"><span #empty>No fields</span>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new ForelseAttributeRewriter);
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toContain('@forelse($fields as $field)')
+                ->and($result->render())->toContain(':value="$field"')
+                ->and($result->render())->toContain('type="text"');
+        });
+    });
 });

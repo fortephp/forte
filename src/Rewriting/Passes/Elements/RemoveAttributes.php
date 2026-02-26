@@ -24,7 +24,7 @@ readonly class RemoveAttributes extends ElementPass
     {
         /** @var Attribute $attr */
         foreach ($element->attributes() as $attr) {
-            $attrName = $attr->nameText();
+            $attrName = $attr->rawName();
 
             foreach ($this->attributePatterns as $pattern) {
                 if (Str::is($pattern, $attrName)) {

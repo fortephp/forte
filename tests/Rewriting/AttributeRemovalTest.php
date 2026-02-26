@@ -195,7 +195,7 @@ describe('Attribute Removal', function (): void {
             {
                 $node = $path->node();
                 if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
-                    $path->removeAttribute('class')
+                    $path->removeAttribute(':class')
                         ->setAttribute('::class', 'raw');
                 }
             }
@@ -217,7 +217,7 @@ describe('Attribute Removal', function (): void {
             {
                 $node = $path->node();
                 if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
-                    $path->removeAttribute('class')
+                    $path->removeAttribute('::class')
                         ->setAttribute(':class', '$expr');
                 }
             }
@@ -261,7 +261,7 @@ describe('Attribute Removal', function (): void {
             {
                 $node = $path->node();
                 if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
-                    $path->removeAttribute('class')
+                    $path->removeAttribute(':class')
                         ->setAttribute('class', 'foo');
                 }
             }
@@ -283,7 +283,7 @@ describe('Attribute Removal', function (): void {
             {
                 $node = $path->node();
                 if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
-                    $path->removeAttribute('class')
+                    $path->removeAttribute(':class')
                         ->setAttribute(':style', '$styles');
                 }
             }
@@ -305,7 +305,7 @@ describe('Attribute Removal', function (): void {
             {
                 $node = $path->node();
                 if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
-                    $path->removeAttribute('class')
+                    $path->removeAttribute('::class')
                         ->setAttribute('::style', 'raw');
                 }
             }
@@ -392,5 +392,165 @@ describe('Attribute Removal', function (): void {
             ->and($result)->not->toContain('data-x')
             ->and($result)->toContain('data-y="2"')
             ->and($result)->toContain('id="test"');
+    });
+
+    test('removeAttribute on void element preserves bound sibling', function (): void {
+        $html = '<input type="text" :value="$val" data-x="1">';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'input') {
+                    $path->removeAttribute('data-x');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('type="text"')
+            ->and($result)->toContain(':value="$val"')
+            ->and($result)->not->toContain('data-x');
+    });
+
+    test('setAttribute on self-closing element preserves escaped sibling', function (): void {
+        $html = '<img ::alt="raw" src="old.jpg" />';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'img') {
+                    $path->setAttribute('src', 'new.jpg');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('::alt="raw"')
+            ->and($result)->toContain('src="new.jpg"')
+            ->and($result)->not->toContain('old.jpg');
+    });
+
+    test('renameTag on self-closing element preserves all prefix types', function (): void {
+        $html = '<img :src="$url" ::alt="raw" class="photo" />';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'img') {
+                    $path->renameTag('picture');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('<picture')
+            ->and($result)->toContain(':src="$url"')
+            ->and($result)->toContain('::alt="raw"')
+            ->and($result)->toContain('class="photo"');
+    });
+
+    test('renameTag on void element preserves bound attribute', function (): void {
+        $html = '<input :value="$val" type="text">';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'input') {
+                    $path->renameTag('textarea');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('<textarea')
+            ->and($result)->toContain(':value="$val"')
+            ->and($result)->toContain('type="text"');
+    });
+
+    test('addClass with bound :class sibling adds new class attribute', function (): void {
+        $html = '<div :class="$dynamic">content</div>';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
+                    $path->addClass('static');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain(':class="$dynamic"')
+            ->and($result)->toContain('class="static"');
+    });
+
+    test('removeClass preserves bound :class sibling', function (): void {
+        $html = '<div class="a b" :class="$dynamic">content</div>';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
+                    $path->removeClass('a');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('class="b"')
+            ->and($result)->toContain(':class="$dynamic"')
+            ->and($result)->not->toContain('class="a');
+    });
+
+    test('addClass after removeAttribute when bound :class exists', function (): void {
+        $html = '<div class="old" :class="$dynamic">content</div>';
+        $doc = Document::parse($html);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                $node = $path->node();
+                if ($node instanceof ElementNode && $node->tagNameText() === 'div') {
+                    $path->removeAttribute('class')
+                        ->addClass('new');
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc)->render();
+
+        expect($result)->toContain('class="new"');
     });
 });
