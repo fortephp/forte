@@ -70,9 +70,6 @@ class Lexer
 
     private bool $continuedTagName = false;
 
-    /** @phpstan-ignore property.onlyWritten */
-    private bool $rawtext = false;
-
     private string $rawtextTagName = '';
 
     private string $currentTagName = '';

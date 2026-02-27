@@ -20,7 +20,6 @@ trait HtmlScanner
 
         $tagNameLower = strtolower($this->currentTagName);
         if (in_array($tagNameLower, self::RAWTEXT_ELEMENTS, true)) {
-            $this->rawtext = true;
             $this->rawtextTagName = $tagNameLower;
 
             return State::RawText;

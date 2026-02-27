@@ -121,7 +121,6 @@ trait RawtextScanner
                                 }
 
                                 // Exit rawtext mode
-                                $this->rawtext = false;
                                 $this->rawtextTagName = '';
 
                                 // Emit the closing tag tokens: <, /, tagname
@@ -163,7 +162,6 @@ trait RawtextScanner
                             if ($start < $this->pos) {
                                 $this->emitToken(TokenType::Text, $start, $this->pos);
                             }
-                            $this->rawtext = false;
                             $this->rawtextTagName = '';
                             $this->emitToken(TokenType::LessThan, $this->pos, $this->pos + 1);
                             $this->pos++;
@@ -193,7 +191,6 @@ trait RawtextScanner
         }
 
         // Exit rawtext mode (unclosed element)
-        $this->rawtext = false;
         $this->rawtextTagName = '';
     }
 }
