@@ -14,7 +14,8 @@
     ],
     "require": {
         "php": "^8.2",
-        "laravel/framework": "^11 || ^12.0",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/view": "^11.0|^12.0|^13.0",
         "ext-dom": "*"
     },
     "require-dev": {
