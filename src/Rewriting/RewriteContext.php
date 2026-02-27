@@ -177,6 +177,17 @@ class RewriteContext
             }
         }
 
+        // Check synthetic attributes from prior pipeline passes (e.g., after RenameTag).
+        $syntheticAttrs = $element->syntheticAttributes();
+
+        if ($syntheticAttrs !== null) {
+            foreach ($syntheticAttrs as [$attrName, $attrValue]) {
+                if ($attrName === $name) {
+                    return $attrValue === true ? null : (string) $attrValue;
+                }
+            }
+        }
+
         return null;
     }
 
