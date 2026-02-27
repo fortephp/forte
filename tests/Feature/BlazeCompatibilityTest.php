@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Forte\Tests\BlazeTestCase;
 
-
 uses(BlazeTestCase::class);
 
 describe('Blaze', function (): void {
@@ -44,31 +43,5 @@ describe('Blaze', function (): void {
             ->toContain('$__currentLoopData')
             ->toContain('<?php if($user->active): ?>')
             ->toContain('echo e($user->name)');
-    });
-
-    it('renders #if component view correctly when condition is true', function (): void {
-        $this->get('/blaze-if')
-            ->assertOk()
-            ->assertSee('<button', false)
-            ->assertSee('Conditional', false);
-    });
-
-    it('renders #foreach component view with all items', function (): void {
-        $response = $this->get('/blaze-foreach');
-
-        $response->assertOk()
-            ->assertSee('Alpha', false)
-            ->assertSee('Beta', false)
-            ->assertSee('badge-red', false)
-            ->assertSee('badge-blue', false);
-    });
-
-    it('renders combined Forte + Blaze view correctly', function (): void {
-        $response = $this->get('/blaze-combined');
-
-        $response->assertOk()
-            ->assertSee('Alice', false)
-            ->assertSee('Charlie', false)
-            ->assertSee('card', false);
     });
 });

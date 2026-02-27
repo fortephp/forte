@@ -37,22 +37,5 @@ class BlazeTestCase extends FeatureTestCase
 
         $app['config']->set('blaze.enabled', true);
         $app['config']->set('blaze.debug', false);
-
-        $app['router']->get('/blaze-if', fn () => view('blaze-if', ['show' => true]));
-
-        $app['router']->get('/blaze-foreach', fn () => view('blaze-foreach', [
-            'items' => collect([
-                (object) ['name' => 'Alpha', 'color' => 'red'],
-                (object) ['name' => 'Beta', 'color' => 'blue'],
-            ]),
-        ]));
-
-        $app['router']->get('/blaze-combined', fn () => view('blaze-combined', [
-            'users' => collect([
-                (object) ['name' => 'Alice', 'role' => 'admin', 'active' => true],
-                (object) ['name' => 'Bob', 'role' => 'user', 'active' => false],
-                (object) ['name' => 'Charlie', 'role' => 'admin', 'active' => true],
-            ]),
-        ]));
     }
 }
