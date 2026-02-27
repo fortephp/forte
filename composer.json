@@ -14,12 +14,12 @@
     ],
     "require": {
         "php": "^8.2",
-        "illuminate/support": "^11.0|^12.0|^13.0",
-        "illuminate/view": "^11.0|^12.0|^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/view": "^11.0 || ^12.0 || ^13.0",
         "ext-dom": "*"
     },
     "require-dev": {
-        "orchestra/testbench": "^9.2 || ^10.0",
+        "orchestra/testbench": "^9.2 || ^10.0 || ^11.0",
         "pestphp/pest": "^3",
         "laravel/pint": "^1.22",
         "spatie/laravel-ray": "^1.38",
@@ -47,5 +47,6 @@
                 "Forte\\ServiceProvider"
             ]
         }
-    }
+    },
+    "minimum-stability": "dev"
 }
