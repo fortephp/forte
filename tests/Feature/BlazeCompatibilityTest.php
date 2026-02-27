@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Forte\Tests\BlazeTestCase;
 
+
 uses(BlazeTestCase::class);
 
 describe('Blaze', function (): void {
