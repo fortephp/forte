@@ -7,7 +7,7 @@ namespace Forte\Tests;
 use Forte\Enclaves\EnclavesManager;
 use Livewire\Blaze\BlazeServiceProvider;
 
-class BlazeTestCase extends FeatureTestCase
+class BlazeTestCase extends ForteTestCase
 {
     protected function getPackageProviders($app)
     {
@@ -29,11 +29,9 @@ class BlazeTestCase extends FeatureTestCase
             ->elementForeachAttributes()
             ->elementForelseAttributes();
 
-        $componentsPath = realpath(__DIR__.'/Fixtures/blaze/components');
-
-        if ($componentsPath) {
-            $app['blade.compiler']->anonymousComponentPath($componentsPath);
-        }
+        $app['blade.compiler']->anonymousComponentPath(
+            __DIR__.'/Fixtures/blaze/components',
+        );
 
         $app['config']->set('blaze.enabled', true);
         $app['config']->set('blaze.debug', false);
