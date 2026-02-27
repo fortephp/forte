@@ -33,5 +33,19 @@ readonly class RemoveAttributes extends ElementPass
                 }
             }
         }
+
+        // Handle synthetic attributes from prior pipeline passes (e.g., after RenameTag).
+        $syntheticAttrs = $element->syntheticAttributes();
+
+        if ($syntheticAttrs !== null) {
+            foreach ($syntheticAttrs as [$name, $value]) {
+                foreach ($this->attributePatterns as $pattern) {
+                    if (Str::is($pattern, $name)) {
+                        $path->removeAttribute($name);
+                        break;
+                    }
+                }
+            }
+        }
     }
 }

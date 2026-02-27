@@ -198,6 +198,22 @@ class ElementNode extends Node
     }
 
     /**
+     * Get synthetic attribute data from prior pipeline passes, if available.
+     *
+     * @return list<array{0: string, 1: string|true}>|null
+     */
+    public function syntheticAttributes(): ?array
+    {
+        $meta = $this->document->getSyntheticMeta($this->index);
+
+        if ($meta !== null && isset($meta['attributes']) && is_array($meta['attributes'])) {
+            return $meta['attributes'];
+        }
+
+        return null;
+    }
+
+    /**
      * Check if this element matches a tag name pattern.
      */
     public function is(string $pattern): bool

@@ -79,28 +79,39 @@ class Rewriter implements AstRewriter
             return;
         }
 
-        $operation = $context->getOperation($node);
+        $enterOp = $context->getOperation($node);
 
-        $this->applyOperation($node, $operation, $path, $context, $builder);
+        $outputIndex = $this->applyOperation($node, $enterOp, $path, $context, $builder);
 
-        if (! $this->isKeepOperation($operation)) {
+        if (! $this->isKeepOperation($enterOp)) {
             return;
         }
+
+        // Snapshot enter-phase state before leave callbacks can modify the shared Operation object.
+        $enterAttrSnapshot = $enterOp !== null ? $enterOp->attributeChanges : [];
+        $enterTagSnapshot = $enterOp?->newTagName;
 
         if ($this->runVisitorsLeave($path, $context)) {
             return;
         }
 
-        $this->processLeaveInsertAfter($node, $operation, $context, $builder);
+        if ($outputIndex !== null && $node instanceof ElementNode) {
+            $this->applyLeaveElementModifications($node, $enterAttrSnapshot, $enterTagSnapshot, $outputIndex, $context, $builder);
+        }
+
+        $this->processLeaveInsertAfter($node, $enterOp, $context, $builder);
     }
 
+    /**
+     * @return int|null The builder index of the output node for Keep operations, null otherwise.
+     */
     private function applyOperation(
         Node $node,
         ?Operation $operation,
         NodePath $path,
         RewriteContext $context,
         DocumentBuilder $builder
-    ): void {
+    ): ?int {
         if ($operation !== null) {
             $this->emitInsertions($operation->insertBefore, $builder);
             $this->emitWrapOpens($operation, $builder);
@@ -108,6 +119,7 @@ class Rewriter implements AstRewriter
 
         /** @phpstan-ignore nullsafe.neverNull */
         $type = $operation?->type ?? OperationType::Keep;
+        $outputIndex = null;
 
         switch ($type) {
             case OperationType::Remove:
@@ -133,7 +145,7 @@ class Rewriter implements AstRewriter
 
             case OperationType::Keep:
             default:
-                $this->copyNodeWithChildren($node, $path, $context, $builder, $operation);
+                $outputIndex = $this->copyNodeWithChildren($node, $path, $context, $builder, $operation);
                 break;
         }
 
@@ -141,26 +153,28 @@ class Rewriter implements AstRewriter
             $this->emitWrapCloses($operation, $builder);
             $this->emitInsertions($operation->insertAfter, $builder);
         }
+
+        return $outputIndex;
     }
 
+    /**
+     * @return int The builder index of the copied node.
+     */
     private function copyNodeWithChildren(
         Node $node,
         NodePath $path,
         RewriteContext $context,
         DocumentBuilder $builder,
         ?Operation $operation = null
-    ): void {
+    ): int {
         if ($this->shouldModifyElement($node, $operation) && $node instanceof ElementNode) {
             assert($operation !== null);
-            $this->copyElementWithModifications($node, $path, $context, $builder, $operation);
 
-            return;
+            return $this->copyElementWithModifications($node, $path, $context, $builder, $operation);
         }
 
         if ($context->shouldSkipChildren($node) || ! $node->hasChildren()) {
-            $builder->copySubtree($node);
-
-            return;
+            return $builder->copySubtree($node);
         }
 
         $newIndex = $builder->copyNode($node, forComposition: true);
@@ -202,15 +216,20 @@ class Rewriter implements AstRewriter
         }
 
         $builder->popParent();
+
+        return $newIndex;
     }
 
+    /**
+     * @return int The builder index of the synthetic element.
+     */
     private function copyElementWithModifications(
         ElementNode $element,
         NodePath $path,
         RewriteContext $context,
         DocumentBuilder $builder,
         Operation $operation
-    ): void {
+    ): int {
         $spec = $this->buildElementSpec($element, $operation, $builder->sourceDocument());
         $meta = $builder->sourceDocument()->getSyntheticMeta($element->index());
         $selfClosing = ($meta['selfClosing'] ?? false) || $element->isSelfClosing();
@@ -223,9 +242,7 @@ class Rewriter implements AstRewriter
         }
 
         if (! $element->hasChildren() || $selfClosing || $void) {
-            $builder->addSyntheticNode($spec);
-
-            return;
+            return $builder->addSyntheticNode($spec);
         }
 
         $newIndex = $builder->addSyntheticElement($spec);
@@ -244,6 +261,8 @@ class Rewriter implements AstRewriter
 
         $this->emitInsertions($operation->appendChildren, $builder);
         $builder->popParent();
+
+        return $newIndex;
     }
 
     private function copyNodeReplaceChildren(Node $node, Operation $operation, DocumentBuilder $builder): void
@@ -396,6 +415,45 @@ class Rewriter implements AstRewriter
 
         $newInserts = array_slice($leaveOp->insertAfter, $already);
         $this->emitInsertions($newInserts, $builder);
+    }
+
+    /**
+     * Apply element modifications (attribute changes, tag renames) queued during the leave phase.
+     *
+     * @param  array<string, string|null>  $enterAttrSnapshot  Attribute changes from the enter phase
+     * @param  string|null  $enterTagSnapshot  Tag name from the enter phase
+     */
+    private function applyLeaveElementModifications(
+        ElementNode $element,
+        array $enterAttrSnapshot,
+        ?string $enterTagSnapshot,
+        int $outputIndex,
+        RewriteContext $context,
+        DocumentBuilder $builder
+    ): void {
+        $leaveOp = $context->getOperation($element);
+
+        if ($leaveOp === null) {
+            return;
+        }
+
+        if ($leaveOp->attributeChanges === $enterAttrSnapshot && $leaveOp->newTagName === $enterTagSnapshot) {
+            return;
+        }
+
+        $spec = $this->buildElementSpec($element, $leaveOp, $builder->sourceDocument());
+
+        $meta = $builder->sourceDocument()->getSyntheticMeta($element->index());
+        $selfClosing = ($meta['selfClosing'] ?? false) || $element->isSelfClosing();
+        $void = ($meta['void'] ?? false) || $element->isVoid();
+
+        if ($selfClosing) {
+            $spec->selfClosing();
+        } elseif ($void) {
+            $spec->void();
+        }
+
+        $builder->patchElementMeta($outputIndex, $spec);
     }
 
     private function isKeepOperation(?Operation $operation): bool

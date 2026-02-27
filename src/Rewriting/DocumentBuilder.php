@@ -205,6 +205,22 @@ class DocumentBuilder
         return $newIndex;
     }
 
+    /**
+     * Retroactively update the synthetic metadata for an already-added element node.
+     */
+    public function patchElementMeta(int $nodeIndex, ElementBuilder $spec): void
+    {
+        $existing = $this->syntheticMeta[$nodeIndex] ?? [];
+
+        $this->syntheticMeta[$nodeIndex] = array_merge($existing, [
+            'tagName' => $spec->getTagName(),
+            'attributes' => $spec->getAttributes(),
+            'selfClosing' => $spec->isSelfClosing(),
+            'void' => $spec->isVoid(),
+            'needsComposition' => true,
+        ]);
+    }
+
     public function pushParent(int $index): void
     {
         $this->parentStack[] = $index;
@@ -279,7 +295,12 @@ class DocumentBuilder
     private function extractSyntheticMeta(NodeBuilder $spec): ?array
     {
         if ($spec instanceof ElementBuilder) {
-            return ['tagName' => $spec->getTagName()];
+            return [
+                'tagName' => $spec->getTagName(),
+                'attributes' => $spec->getAttributes(),
+                'selfClosing' => $spec->isSelfClosing(),
+                'void' => $spec->isVoid(),
+            ];
         }
 
         if ($spec instanceof DirectiveBuilder) {
