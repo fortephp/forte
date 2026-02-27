@@ -5,6 +5,35 @@ declare(strict_types=1);
 use Forte\Enclaves\Rewriters\ForelseAttributeRewriter;
 use Forte\Rewriting\Rewriter;
 
+function forelseOpen(string $variable, string $alias, int $counter = 1): string
+{
+    $emptyVar = '$__empty_'.$counter;
+
+    return "<?php {$emptyVar} = true; \$__currentLoopData = {$variable}; \$__env->addLoop(\$__currentLoopData); foreach(\$__currentLoopData as {$alias}): {$emptyVar} = false; \$__env->incrementLoopIndices(); \$loop = \$__env->getLastLoop(); ?>";
+}
+
+function forelseEmpty(int $counter = 1): string
+{
+    $emptyVar = '$__empty_'.$counter;
+
+    return "<?php endforeach; \$__env->popLoop(); \$loop = \$__env->getLastLoop(); if ({$emptyVar}): ?>";
+}
+
+function forelseEndforelse(): string
+{
+    return '<?php endif; ?>';
+}
+
+function forelseStandaloneOpen(string $variable, string $alias): string
+{
+    return "<?php \$__currentLoopData = {$variable}; \$__env->addLoop(\$__currentLoopData); foreach(\$__currentLoopData as {$alias}): \$__env->incrementLoopIndices(); \$loop = \$__env->getLastLoop(); ?>";
+}
+
+function forelseStandaloneClose(): string
+{
+    return '<?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>';
+}
+
 describe('Forelse Attribute Rewriter', function (): void {
     describe('basic #forelse with #empty', function (): void {
         it('transforms #forelse followed by #empty', function (): void {
@@ -16,7 +45,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li>{{ $user->name }}</li>@empty<p>No users</p>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li>{{ $user->name }}</li>'.forelseEmpty().'<p>No users</p>'.forelseEndforelse());
         });
 
         it('removes attributes from elements', function (): void {
@@ -28,7 +57,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($items as $item)<li class="item">{{ $item }}</li>@empty<div class="empty">Empty</div>@endforelse');
+                ->toBe(forelseOpen('$items', '$item').'<li class="item">{{ $item }}</li>'.forelseEmpty().'<div class="empty">Empty</div>'.forelseEndforelse());
         });
 
         it('handles key => value syntax', function (): void {
@@ -40,7 +69,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($options as $key => $value)<option>{{ $value }}</option>@empty<option>No options</option>@endforelse');
+                ->toBe(forelseOpen('$options', '$key => $value').'<option>{{ $value }}</option>'.forelseEmpty().'<option>No options</option>'.forelseEndforelse());
         });
     });
 
@@ -54,7 +83,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li :class="$class">{{ $user }}</li>@empty<li>None</li>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li :class="$class">{{ $user }}</li>'.forelseEmpty().'<li>None</li>'.forelseEndforelse());
         });
 
         it('preserves escaped attribute on forelse element', function (): void {
@@ -66,7 +95,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li ::class="rawValue">{{ $user }}</li>@empty<li>None</li>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li ::class="rawValue">{{ $user }}</li>'.forelseEmpty().'<li>None</li>'.forelseEndforelse());
         });
 
         it('preserves shorthand variable attribute on forelse element', function (): void {
@@ -78,7 +107,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li :$user>{{ $user }}</li>@empty<li>None</li>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li :$user>{{ $user }}</li>'.forelseEmpty().'<li>None</li>'.forelseEndforelse());
         });
 
         it('preserves bound attribute on empty element', function (): void {
@@ -90,7 +119,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li>{{ $user }}</li>@empty<div :class="$emptyClass">None</div>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li>{{ $user }}</li>'.forelseEmpty().'<div :class="$emptyClass">None</div>'.forelseEndforelse());
         });
     });
 
@@ -104,7 +133,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li>{{ $user->name }}</li>@endforelse');
+                ->toBe(forelseStandaloneOpen('$users', '$user').'<li>{{ $user->name }}</li>'.forelseStandaloneClose());
         });
 
         it('handles forelse when next sibling is not #empty', function (): void {
@@ -116,7 +145,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li>{{ $user }}</li>@endforelse<li>Footer</li>');
+                ->toBe(forelseStandaloneOpen('$users', '$user').'<li>{{ $user }}</li>'.forelseStandaloneClose().'<li>Footer</li>');
         });
     });
 
@@ -130,7 +159,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe("@forelse(\$users as \$user)<li>{{ \$user }}</li>\n@empty<p>No users</p>@endforelse");
+                ->toBe(forelseOpen('$users', '$user')."<li>{{ \$user }}</li>\n".forelseEmpty().'<p>No users</p>'.forelseEndforelse());
         });
 
         it('handles multiple whitespace nodes', function (): void {
@@ -142,7 +171,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe("@forelse(\$items as \$item)<li>{{ \$item }}</li>\n\n\n@empty<p>Empty</p>@endforelse");
+                ->toBe(forelseOpen('$items', '$item')."<li>{{ \$item }}</li>\n\n\n".forelseEmpty().'<p>Empty</p>'.forelseEndforelse());
         });
     });
 
@@ -156,7 +185,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<ul>@forelse($items as $item)<li>{{ $item }}</li>@empty<li>Empty</li>@endforelse</ul>');
+                ->toBe('<ul>'.forelseOpen('$items', '$item').'<li>{{ $item }}</li>'.forelseEmpty().'<li>Empty</li>'.forelseEndforelse().'</ul>');
         });
 
         it('handles nested #forelse', function (): void {
@@ -168,7 +197,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($groups as $group)<div>@forelse($group->items as $item)<span>{{ $item }}</span>@empty<span>No items</span>@endforelse</div>@empty<div>No groups</div>@endforelse');
+                ->toBe(forelseOpen('$groups', '$group').'<div>'.forelseOpen('$group->items', '$item', 2).'<span>{{ $item }}</span>'.forelseEmpty(2).'<span>No items</span>'.forelseEndforelse().'</div>'.forelseEmpty(1).'<div>No groups</div>'.forelseEndforelse());
         });
     });
 
@@ -182,7 +211,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<li>{{ $user }}</li>@empty<p>No users</p>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<li>{{ $user }}</li>'.forelseEmpty().'<p>No users</p>'.forelseEndforelse());
         });
     });
 
@@ -196,7 +225,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe("@forelse(\$users->active()->sortBy('name') as \$user)<li>{{ \$user->name }}</li>@empty<li>None</li>@endforelse");
+                ->toBe(forelseOpen("\$users->active()->sortBy('name')", '$user').'<li>{{ $user->name }}</li>'.forelseEmpty().'<li>None</li>'.forelseEndforelse());
         });
 
         it('handles array syntax', function (): void {
@@ -208,7 +237,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse([1, 2, 3] as $num)<li>{{ $num }}</li>@empty<li>No numbers</li>@endforelse');
+                ->toBe(forelseOpen('[1, 2, 3]', '$num').'<li>{{ $num }}</li>'.forelseEmpty().'<li>No numbers</li>'.forelseEndforelse());
         });
     });
 
@@ -222,7 +251,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($items as $item)<li>{{ $item }}</li>@empty<span></span>@endforelse');
+                ->toBe(forelseOpen('$items', '$item').'<li>{{ $item }}</li>'.forelseEmpty().'<span></span>'.forelseEndforelse());
         });
 
         it('handles complex inner content in both branches', function (): void {
@@ -234,7 +263,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($users as $user)<div><h3>{{ $user->name }}</h3><p>{{ $user->bio }}</p></div>@empty<div><h3>No Users</h3><p>Please add some users.</p></div>@endforelse');
+                ->toBe(forelseOpen('$users', '$user').'<div><h3>{{ $user->name }}</h3><p>{{ $user->bio }}</p></div>'.forelseEmpty().'<div><h3>No Users</h3><p>Please add some users.</p></div>'.forelseEndforelse());
         });
     });
 
@@ -248,7 +277,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($groups as $group)<div>@forelse($group->items as $item)<span>{{ $item }}</span>@empty<span>No items</span>@endforelse</div>@empty<div>No groups</div>@endforelse');
+                ->toBe(forelseOpen('$groups', '$group').'<div>'.forelseOpen('$group->items', '$item', 2).'<span>{{ $item }}</span>'.forelseEmpty(2).'<span>No items</span>'.forelseEndforelse().'</div>'.forelseEmpty(1).'<div>No groups</div>'.forelseEndforelse());
         });
 
         it('handles three levels of nested forelse', function (): void {
@@ -260,7 +289,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($a as $b)<div>@forelse($b as $c)<div>@forelse($c as $d)<div>{{ $d }}</div>@empty<div>No D</div>@endforelse</div>@empty<div>No C</div>@endforelse</div>@empty<div>No B</div>@endforelse');
+                ->toBe(forelseOpen('$a', '$b').'<div>'.forelseOpen('$b', '$c', 2).'<div>'.forelseOpen('$c', '$d', 3).'<div>{{ $d }}</div>'.forelseEmpty(3).'<div>No D</div>'.forelseEndforelse().'</div>'.forelseEmpty(2).'<div>No C</div>'.forelseEndforelse().'</div>'.forelseEmpty(1).'<div>No B</div>'.forelseEndforelse());
         });
 
         it('handles sibling forelse loops', function (): void {
@@ -272,7 +301,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<ul>@forelse($a as $item)<li>{{ $item }}</li>@empty<li>Empty A</li>@endforelse</ul><ul>@forelse($b as $item)<li>{{ $item }}</li>@empty<li>Empty B</li>@endforelse</ul>');
+                ->toBe('<ul>'.forelseOpen('$a', '$item').'<li>{{ $item }}</li>'.forelseEmpty(1).'<li>Empty A</li>'.forelseEndforelse().'</ul><ul>'.forelseOpen('$b', '$item', 2).'<li>{{ $item }}</li>'.forelseEmpty(2).'<li>Empty B</li>'.forelseEndforelse().'</ul>');
         });
 
         it('handles forelse without empty nested inside another forelse', function (): void {
@@ -284,7 +313,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($groups as $group)<div>@forelse($group->items as $item)<span>{{ $item }}</span>@endforelse</div>@empty<div>No groups</div>@endforelse');
+                ->toBe(forelseOpen('$groups', '$group').'<div>'.forelseStandaloneOpen('$group->items', '$item').'<span>{{ $item }}</span>'.forelseStandaloneClose().'</div>'.forelseEmpty(1).'<div>No groups</div>'.forelseEndforelse());
         });
     });
 
@@ -298,7 +327,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@forelse($items as $item)<li class="a" :class="$b">{{ $item }}</li>@empty<li>None</li>@endforelse');
+                ->toBe(forelseOpen('$items', '$item').'<li class="a" :class="$b">{{ $item }}</li>'.forelseEmpty().'<li>None</li>'.forelseEndforelse());
         });
 
         it('preserves bound attribute on void forelse element', function (): void {
@@ -310,7 +339,7 @@ describe('Forelse Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toContain('@forelse($fields as $field)')
+                ->toContain('$__empty_')
                 ->and($result->render())->toContain(':value="$field"')
                 ->and($result->render())->toContain('type="text"');
         });

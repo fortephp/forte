@@ -16,7 +16,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div>content</div>@endif');
+                ->toBe('<?php if($show): ?><div>content</div><?php endif; ?>');
         });
 
         it('removes #if attribute from element', function (): void {
@@ -28,7 +28,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div class="container">content</div>@endif');
+                ->toBe('<?php if($show): ?><div class="container">content</div><?php endif; ?>');
         });
 
         it('handles complex conditions', function (): void {
@@ -40,7 +40,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($count > 5 && $active)<div>visible</div>@endif');
+                ->toBe('<?php if($count > 5 && $active): ?><div>visible</div><?php endif; ?>');
         });
 
         it('normalizes conditions with outer parentheses', function (): void {
@@ -52,7 +52,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div>content</div>@endif');
+                ->toBe('<?php if($show): ?><div>content</div><?php endif; ?>');
         });
 
         it('preserves bound attribute syntax', function (): void {
@@ -64,7 +64,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div :class="$classes">content</div>@endif');
+                ->toBe('<?php if($show): ?><div :class="$classes">content</div><?php endif; ?>');
         });
 
         it('preserves escaped attribute syntax', function (): void {
@@ -76,7 +76,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div ::class="rawValue">content</div>@endif');
+                ->toBe('<?php if($show): ?><div ::class="rawValue">content</div><?php endif; ?>');
         });
 
         it('preserves shorthand variable attribute syntax', function (): void {
@@ -88,7 +88,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div :$user>content</div>@endif');
+                ->toBe('<?php if($show): ?><div :$user>content</div><?php endif; ?>');
         });
 
         it('preserves boolean attribute syntax', function (): void {
@@ -100,7 +100,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div disabled>content</div>@endif');
+                ->toBe('<?php if($show): ?><div disabled>content</div><?php endif; ?>');
         });
 
         it('works with nested elements', function (): void {
@@ -112,7 +112,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($outer)<div>@if($inner)<span>nested</span>@endif</div>@endif');
+                ->toBe('<?php if($outer): ?><div><?php if($inner): ?><span>nested</span><?php endif; ?></div><?php endif; ?>');
         });
     });
 
@@ -126,7 +126,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@elseif($b)<div>B</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php elseif($b): ?><div>B</div><?php endif; ?>');
         });
 
         it('handles multiple #else-if branches', function (): void {
@@ -138,7 +138,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@elseif($b)<div>B</div>@elseif($c)<div>C</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php elseif($b): ?><div>B</div><?php elseif($c): ?><div>C</div><?php endif; ?>');
         });
     });
 
@@ -152,7 +152,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div>visible</div>@else<div>hidden</div>@endif');
+                ->toBe('<?php if($show): ?><div>visible</div><?php else: ?><div>hidden</div><?php endif; ?>');
         });
 
         it('handles full conditional chain', function (): void {
@@ -164,7 +164,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@elseif($b)<div>B</div>@else<div>C</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php elseif($b): ?><div>B</div><?php else: ?><div>C</div><?php endif; ?>');
         });
 
         it('handles #else with content', function (): void {
@@ -176,7 +176,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<span>yes</span>@else<span>no</span>@endif');
+                ->toBe('<?php if($show): ?><span>yes</span><?php else: ?><span>no</span><?php endif; ?>');
         });
     });
 
@@ -190,7 +190,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe("@if(\$show)<div>visible</div>\n@else<div>hidden</div>@endif");
+                ->toBe("<?php if(\$show): ?><div>visible</div>\n<?php else: ?><div>hidden</div><?php endif; ?>");
         });
 
         it('handles whitespace in full chain', function (): void {
@@ -202,7 +202,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe("@if(\$a)<div>A</div>\n@elseif(\$b)<div>B</div>\n@else<div>C</div>@endif");
+                ->toBe("<?php if(\$a): ?><div>A</div>\n<?php elseif(\$b): ?><div>B</div>\n<?php else: ?><div>C</div><?php endif; ?>");
         });
     });
 
@@ -216,7 +216,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div>content</div>@endif');
+                ->toBe('<?php if($show): ?><div>content</div><?php endif; ?>');
         });
 
         it('ignores default prefix when custom is set', function (): void {
@@ -242,7 +242,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<ul><li>@if($active)<span>active</span>@endif</li></ul>');
+                ->toBe('<ul><li><?php if($active): ?><span>active</span><?php endif; ?></li></ul>');
         });
 
         it('handles sibling conditionals independently', function (): void {
@@ -254,7 +254,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@endif<p>separator</p>@if($b)<div>B</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php endif; ?><p>separator</p><?php if($b): ?><div>B</div><?php endif; ?>');
         });
     });
 
@@ -268,7 +268,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($outer)<div>@if($a)<div>A</div>@elseif($b)<div>B</div>@else<div>C</div>@endif</div>@endif');
+                ->toBe('<?php if($outer): ?><div><?php if($a): ?><div>A</div><?php elseif($b): ?><div>B</div><?php else: ?><div>C</div><?php endif; ?></div><?php endif; ?>');
         });
 
         it('handles outer conditional chain with nested chain inside first branch', function (): void {
@@ -280,7 +280,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>@if($a)<div>A</div>@elseif($b)<div>B</div>@else<div>C</div>@endif</div>@elseif($b)<div>B</div>@else<div>C</div>@endif');
+                ->toBe('<?php if($a): ?><div><?php if($a): ?><div>A</div><?php elseif($b): ?><div>B</div><?php else: ?><div>C</div><?php endif; ?></div><?php elseif($b): ?><div>B</div><?php else: ?><div>C</div><?php endif; ?>');
         });
 
         it('handles deeply nested conditionals', function (): void {
@@ -292,7 +292,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>@if($b)<div>@if($c)<span>deep</span>@endif</div>@endif</div>@endif');
+                ->toBe('<?php if($a): ?><div><?php if($b): ?><div><?php if($c): ?><span>deep</span><?php endif; ?></div><?php endif; ?></div><?php endif; ?>');
         });
 
         it('handles nested conditionals with multiple branches at each level', function (): void {
@@ -304,7 +304,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>@if($x)<span>X</span>@else<span>Y</span>@endif</div>@else<div>@if($y)<span>Y</span>@endif</div>@endif');
+                ->toBe('<?php if($a): ?><div><?php if($x): ?><span>X</span><?php else: ?><span>Y</span><?php endif; ?></div><?php else: ?><div><?php if($y): ?><span>Y</span><?php endif; ?></div><?php endif; ?>');
         });
 
         it('handles conditional inside each branch of outer conditional', function (): void {
@@ -316,7 +316,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($outer)<div>@if($a)<p>A</p>@endif</div>@elseif($middle)<div>@if($b)<p>B</p>@endif</div>@else<div>@if($c)<p>C</p>@endif</div>@endif');
+                ->toBe('<?php if($outer): ?><div><?php if($a): ?><p>A</p><?php endif; ?></div><?php elseif($middle): ?><div><?php if($b): ?><p>B</p><?php endif; ?></div><?php else: ?><div><?php if($c): ?><p>C</p><?php endif; ?></div><?php endif; ?>');
         });
 
         it('handles sibling nested conditionals', function (): void {
@@ -328,7 +328,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<div>@if($a)<span>A</span>@else<span>B</span>@endif</div><div>@if($c)<span>C</span>@else<span>D</span>@endif</div>');
+                ->toBe('<div><?php if($a): ?><span>A</span><?php else: ?><span>B</span><?php endif; ?></div><div><?php if($c): ?><span>C</span><?php else: ?><span>D</span><?php endif; ?></div>');
         });
     });
 
@@ -342,7 +342,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($show)<div class="a" :class="$b">content</div>@endif');
+                ->toBe('<?php if($show): ?><div class="a" :class="$b">content</div><?php endif; ?>');
         });
 
         it('preserves bound attribute on #else element', function (): void {
@@ -354,7 +354,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@else<div :class="$cls">B</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php else: ?><div :class="$cls">B</div><?php endif; ?>');
         });
 
         it('preserves multiple prefix types on #else-if element', function (): void {
@@ -366,7 +366,7 @@ describe('Conditional Attributes Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@if($a)<div>A</div>@elseif($b)<div class="x" :class="$y" ::style="raw">B</div>@endif');
+                ->toBe('<?php if($a): ?><div>A</div><?php elseif($b): ?><div class="x" :class="$y" ::style="raw">B</div><?php endif; ?>');
         });
     });
 });

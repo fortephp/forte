@@ -320,8 +320,10 @@ readonly class NodePath
         NodeBuilder|array|string $before,
         NodeBuilder|array|string $after
     ): self {
-        return $this->insertBefore($before)
-            ->insertAfter($after);
+        $this->context
+            ->queueWrapPair($this->node, $before, $after);
+
+        return $this;
     }
 
     /**

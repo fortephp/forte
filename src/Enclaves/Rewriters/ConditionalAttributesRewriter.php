@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Enclaves\Rewriters;
 
+use Forte\Ast\Elements\Attribute;
 use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\TextNode;
 use Forte\Rewriting\Builders\Builder;
@@ -11,7 +12,7 @@ use Forte\Rewriting\NodePath;
 use Forte\Rewriting\Visitor;
 use Forte\Support\StringUtilities;
 
-class ConditionalAttributesRewriter extends Visitor
+class ConditionalAttributesRewriter extends Visitor implements AttributeDirective
 {
     /**
      * @param  string  $prefix  The attribute prefix to use
@@ -19,6 +20,29 @@ class ConditionalAttributesRewriter extends Visitor
     public function __construct(
         protected string $prefix = '#'
     ) {}
+
+    public function matches(Attribute $attr): bool
+    {
+        $name = $attr->rawName();
+
+        return $name === $this->prefix.'if'
+            || $name === $this->prefix.'else-if'
+            || $name === $this->prefix.'else';
+    }
+
+    public function apply(NodePath $path, ElementNode $elem, Attribute $attr): void
+    {
+        $name = $attr->rawName();
+        $checkElseBranch = $this->isLeftmostDirective($elem, $attr);
+
+        if ($name === $this->prefix.'if') {
+            $this->handleIf($path, $elem, $name, $attr->valueText(), $checkElseBranch);
+        } elseif ($name === $this->prefix.'else-if') {
+            $this->handleElseIf($path, $elem, $name, $attr->valueText(), $checkElseBranch);
+        } elseif ($name === $this->prefix.'else') {
+            $this->handleElse($path, $elem, $name);
+        }
+    }
 
     public function enter(NodePath $path): void
     {
@@ -50,38 +74,58 @@ class ConditionalAttributesRewriter extends Visitor
         }
     }
 
-    protected function handleIf(NodePath $path, ElementNode $elem, string $attrName): void
+    protected function handleIf(NodePath $path, ElementNode $elem, string $attrName, ?string $value = null, bool $checkElseBranch = true): void
     {
-        $condition = $elem->getAttribute($attrName);
+        $condition = $value ?? $elem->getAttribute($attrName);
         $condition = $this->normalizeExpression($condition);
 
-        $path
-            ->removeAttribute($attrName)
-            ->insertBefore(Builder::directive('if', "({$condition})"));
+        $path->removeAttribute($attrName);
 
-        if (! $this->hasElseBranch($path)) {
-            $path->insertAfter(Builder::directive('endif'));
+        if ($checkElseBranch && $this->hasElseBranch($path)) {
+            $path->insertBefore(Builder::phpTag("if({$condition}):"));
+        } else {
+            $path->wrapIn(
+                Builder::phpTag("if({$condition}):"),
+                Builder::phpTag('endif;')
+            );
         }
     }
 
-    protected function handleElseIf(NodePath $path, ElementNode $elem, string $attrName): void
+    protected function handleElseIf(NodePath $path, ElementNode $elem, string $attrName, ?string $value = null, bool $checkElseBranch = true): void
     {
-        $condition = $elem->getAttribute($attrName);
+        $condition = $value ?? $elem->getAttribute($attrName);
         $condition = $this->normalizeExpression($condition);
 
-        $path->removeAttribute($attrName)
-            ->insertBefore(Builder::directive('elseif', "({$condition})"));
+        $path->removeAttribute($attrName);
 
-        if (! $this->hasElseBranch($path)) {
-            $path->insertAfter(Builder::directive('endif'));
+        if ($checkElseBranch && $this->hasElseBranch($path)) {
+            $path->insertBefore(Builder::phpTag("elseif({$condition}):"));
+        } else {
+            $path->wrapIn(
+                Builder::phpTag("elseif({$condition}):"),
+                Builder::phpTag('endif;')
+            );
         }
     }
 
     protected function handleElse(NodePath $path, ElementNode $elem, string $attrName): void
     {
         $path->removeAttribute($attrName)
-            ->insertBefore(Builder::directive('else'))
-            ->insertAfter(Builder::directive('endif'));
+            ->wrapIn(
+                Builder::phpTag('else:'),
+                Builder::phpTag('endif;')
+            );
+    }
+
+    private function isLeftmostDirective(ElementNode $elem, Attribute $attr): bool
+    {
+        foreach ($elem->attributes() as $a) {
+            if ($this->matches($a)) {
+                return $a === $attr;
+            }
+        }
+
+        return true;
     }
 
     protected function hasElseBranch(NodePath $path): bool

@@ -21,6 +21,9 @@ class Operation
     /** @var array<NodeBuilder> */
     public array $appendChildren = [];
 
+    /** @var list<array{before: array<NodeBuilder>, after: array<NodeBuilder>}> */
+    public array $wrapStack = [];
+
     /** @var array<string, string|null> */
     public array $attributeChanges = [];
 

@@ -5,6 +5,16 @@ declare(strict_types=1);
 use Forte\Enclaves\Rewriters\ForeachAttributeRewriter;
 use Forte\Rewriting\Rewriter;
 
+function foreachOpen(string $variable, string $alias): string
+{
+    return "<?php \$__currentLoopData = {$variable}; \$__env->addLoop(\$__currentLoopData); foreach(\$__currentLoopData as {$alias}): \$__env->incrementLoopIndices(); \$loop = \$__env->getLastLoop(); ?>";
+}
+
+function foreachClose(): string
+{
+    return '<?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>';
+}
+
 describe('Foreach Attribute Rewriter', function (): void {
     describe('basic #foreach', function (): void {
         it('transforms simple #foreach', function (): void {
@@ -16,7 +26,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users as $user)<div>{{ $user->name }}</div>@endforeach');
+                ->toBe(foreachOpen('$users', '$user').'<div>{{ $user->name }}</div>'.foreachClose());
         });
 
         it('removes #foreach attribute from element', function (): void {
@@ -28,7 +38,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($items as $item)<li class="item">{{ $item }}</li>@endforeach');
+                ->toBe(foreachOpen('$items', '$item').'<li class="item">{{ $item }}</li>'.foreachClose());
         });
 
         it('handles key => value syntax', function (): void {
@@ -40,7 +50,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($options as $key => $value)<option>{{ $value }}</option>@endforeach');
+                ->toBe(foreachOpen('$options', '$key => $value').'<option>{{ $value }}</option>'.foreachClose());
         });
 
         it('handles method call as collection', function (): void {
@@ -52,7 +62,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves other attribute syntax', function (): void {
@@ -64,7 +74,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr :user="$user"><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr :user="$user"><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('does not leak prefixes into other attribute types', function (): void {
@@ -76,7 +86,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr class="one" :class="two" class="three"><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr class="one" :class="two" class="three"><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves shorthand variable attribute syntax', function (): void {
@@ -88,7 +98,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr :$user><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr :$user><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves boolean attribute syntax', function (): void {
@@ -100,7 +110,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr attribute><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr attribute><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves static attribute syntax', function (): void {
@@ -112,7 +122,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr attribute="value"><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr attribute="value"><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves escaped attribute syntax', function (): void {
@@ -124,7 +134,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr ::attribute="value"><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr ::attribute="value"><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
 
         it('preserves triple-colon attribute syntax', function (): void {
@@ -136,7 +146,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users->active() as $user)<tr :::attribute="value"><td>{{ $user->name }}</td></tr>@endforeach');
+                ->toBe(foreachOpen('$users->active()', '$user').'<tr :::attribute="value"><td>{{ $user->name }}</td></tr>'.foreachClose());
         });
     });
 
@@ -150,7 +160,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($categories as $cat)<ul>@foreach($cat->items as $item)<li>{{ $item }}</li>@endforeach</ul>@endforeach');
+                ->toBe(foreachOpen('$categories', '$cat').'<ul>'.foreachOpen('$cat->items', '$item').'<li>{{ $item }}</li>'.foreachClose().'</ul>'.foreachClose());
         });
 
         it('handles deeply nested #foreach', function (): void {
@@ -162,7 +172,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($a as $x)<div>@foreach($b as $y)<div>@foreach($c as $z)<div>{{ $z }}</div>@endforeach</div>@endforeach</div>@endforeach');
+                ->toBe(foreachOpen('$a', '$x').'<div>'.foreachOpen('$b', '$y').'<div>'.foreachOpen('$c', '$z').'<div>{{ $z }}</div>'.foreachClose().'</div>'.foreachClose().'</div>'.foreachClose());
         });
     });
 
@@ -176,7 +186,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<h1>Title</h1>@foreach($items as $item)<p>{{ $item }}</p>@endforeach<footer>End</footer>');
+                ->toBe('<h1>Title</h1>'.foreachOpen('$items', '$item').'<p>{{ $item }}</p>'.foreachClose().'<footer>End</footer>');
         });
 
         it('works inside other elements', function (): void {
@@ -188,7 +198,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<table><tbody>@foreach($rows as $row)<tr><td>{{ $row }}</td></tr>@endforeach</tbody></table>');
+                ->toBe('<table><tbody>'.foreachOpen('$rows', '$row').'<tr><td>{{ $row }}</td></tr>'.foreachClose().'</tbody></table>');
         });
     });
 
@@ -214,7 +224,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users as $user)<div>{{ $user }}</div>@endforeach');
+                ->toBe(foreachOpen('$users', '$user').'<div>{{ $user }}</div>'.foreachClose());
         });
     });
 
@@ -228,7 +238,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($items as $item)<div></div>@endforeach');
+                ->toBe(foreachOpen('$items', '$item').'<div></div>'.foreachClose());
         });
 
         it('handles self-closing element', function (): void {
@@ -240,7 +250,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($fields as $field)<input type="text" />@endforeach');
+                ->toBe(foreachOpen('$fields', '$field').'<input type="text" />'.foreachClose());
         });
 
         it('preserves complex inner content', function (): void {
@@ -252,7 +262,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users as $user)<div><span>{{ $user->name }}</span><small>{{ $user->email }}</small></div>@endforeach');
+                ->toBe(foreachOpen('$users', '$user').'<div><span>{{ $user->name }}</span><small>{{ $user->email }}</small></div>'.foreachClose());
         });
     });
 
@@ -266,7 +276,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($groups as $group)<div>@foreach($group->items as $item)<span>{{ $item }}</span>@endforeach</div>@endforeach');
+                ->toBe(foreachOpen('$groups', '$group').'<div>'.foreachOpen('$group->items', '$item').'<span>{{ $item }}</span>'.foreachClose().'</div>'.foreachClose());
         });
 
         it('handles three levels of nesting', function (): void {
@@ -278,7 +288,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($a as $b)<div>@foreach($b as $c)<div>@foreach($c as $d)<div>{{ $d }}</div>@endforeach</div>@endforeach</div>@endforeach');
+                ->toBe(foreachOpen('$a', '$b').'<div>'.foreachOpen('$b', '$c').'<div>'.foreachOpen('$c', '$d').'<div>{{ $d }}</div>'.foreachClose().'</div>'.foreachClose().'</div>'.foreachClose());
         });
 
         it('handles sibling foreach loops', function (): void {
@@ -290,7 +300,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('<ul>@foreach($a as $item)<li>{{ $item }}</li>@endforeach</ul><ul>@foreach($b as $item)<li>{{ $item }}</li>@endforeach</ul>');
+                ->toBe('<ul>'.foreachOpen('$a', '$item').'<li>{{ $item }}</li>'.foreachClose().'</ul><ul>'.foreachOpen('$b', '$item').'<li>{{ $item }}</li>'.foreachClose().'</ul>');
         });
 
         it('handles nested foreach with conditionals', function (): void {
@@ -302,7 +312,7 @@ describe('Foreach Attribute Rewriter', function (): void {
             $result = $rewriter->rewrite($doc);
 
             expect($result->render())
-                ->toBe('@foreach($users as $user)<div><span>{{ $user->name }}</span></div>@endforeach');
+                ->toBe(foreachOpen('$users', '$user').'<div><span>{{ $user->name }}</span></div>'.foreachClose());
         });
     });
 });
