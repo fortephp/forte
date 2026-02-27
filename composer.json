@@ -24,7 +24,7 @@
         "spatie/laravel-ray": "^1.38",
         "phpstan/phpstan": "^2.1",
         "rector/rector": "^2.1",
-        "livewire/blaze": "*"
+        "livewire/blaze": "^1.0.2"
     },
     "autoload": {
         "psr-4": {
