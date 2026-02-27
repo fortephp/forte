@@ -103,6 +103,7 @@ class Rewriter implements AstRewriter
     ): void {
         if ($operation !== null) {
             $this->emitInsertions($operation->insertBefore, $builder);
+            $this->emitWrapOpens($operation, $builder);
         }
 
         /** @phpstan-ignore nullsafe.neverNull */
@@ -137,6 +138,7 @@ class Rewriter implements AstRewriter
         }
 
         if ($operation !== null) {
+            $this->emitWrapCloses($operation, $builder);
             $this->emitInsertions($operation->insertAfter, $builder);
         }
     }
@@ -326,6 +328,26 @@ class Rewriter implements AstRewriter
     {
         foreach ($specs as $spec) {
             $builder->addSyntheticNode($spec);
+        }
+    }
+
+    /**
+     * Emit wrap stack opens: last pushed is outermost.
+     */
+    private function emitWrapOpens(Operation $operation, DocumentBuilder $builder): void
+    {
+        foreach (array_reverse($operation->wrapStack) as $wrap) {
+            $this->emitInsertions($wrap['before'], $builder);
+        }
+    }
+
+    /**
+     * Emit wrap stack closes: first pushed is innermost (closes first).
+     */
+    private function emitWrapCloses(Operation $operation, DocumentBuilder $builder): void
+    {
+        foreach ($operation->wrapStack as $wrap) {
+            $this->emitInsertions($wrap['after'], $builder);
         }
     }
 

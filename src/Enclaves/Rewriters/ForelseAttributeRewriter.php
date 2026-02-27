@@ -4,21 +4,47 @@ declare(strict_types=1);
 
 namespace Forte\Enclaves\Rewriters;
 
+use Forte\Ast\Elements\Attribute;
 use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\TextNode;
 use Forte\Rewriting\Builders\Builder;
 use Forte\Rewriting\NodePath;
 use Forte\Rewriting\Visitor;
+use Forte\Support\LoopVariablesExtractor;
 use Forte\Support\StringUtilities;
 
-class ForelseAttributeRewriter extends Visitor
+class ForelseAttributeRewriter extends Visitor implements AttributeDirective
 {
     /**
      * @param  string  $prefix  The attribute prefix to use
      */
+    private int $forelseCounter = 0;
+
+    /** @var list<int> */
+    private array $forelseCounterStack = [];
+
     public function __construct(
         protected string $prefix = '#'
     ) {}
+
+    public function matches(Attribute $attr): bool
+    {
+        $name = $attr->rawName();
+
+        return $name === $this->prefix.'forelse'
+            || $name === $this->prefix.'empty';
+    }
+
+    public function apply(NodePath $path, ElementNode $elem, Attribute $attr): void
+    {
+        $name = $attr->rawName();
+
+        if ($name === $this->prefix.'forelse') {
+            $this->handleForelse($path, $elem, $name, $attr->valueText());
+        } elseif ($name === $this->prefix.'empty') {
+            $this->handleEmpty($path, $elem, $name);
+        }
+    }
 
     public function enter(NodePath $path): void
     {
@@ -43,25 +69,42 @@ class ForelseAttributeRewriter extends Visitor
         }
     }
 
-    protected function handleForelse(NodePath $path, ElementNode $elem, string $attrName): void
+    protected function handleForelse(NodePath $path, ElementNode $elem, string $attrName, ?string $value = null): void
     {
-        $expression = $elem->getAttribute($attrName);
+        $expression = $value ?? $elem->getAttribute($attrName);
         $expression = $this->normalizeExpression($expression);
 
-        $path->removeAttribute($attrName)
-            ->insertBefore(Builder::directive('forelse', "({$expression})"));
+        $extractor = new LoopVariablesExtractor;
+        $loop = $extractor->extractDetails($expression);
 
-        if (! $this->hasEmptyBranch($path)) {
-            // Only add @endforelse if there's no #empty branch
-            $path->insertAfter(Builder::directive('endforelse'));
+        $path->removeAttribute($attrName);
+
+        if ($this->hasEmptyBranch($path)) {
+            $this->forelseCounter++;
+            $this->forelseCounterStack[] = $this->forelseCounter;
+            $emptyVar = '$__empty_'.$this->forelseCounter;
+
+            $path->insertBefore(
+                Builder::phpTag("{$emptyVar} = true; \$__currentLoopData = {$loop->variable}; \$__env->addLoop(\$__currentLoopData); foreach(\$__currentLoopData as {$loop->alias}): {$emptyVar} = false; \$__env->incrementLoopIndices(); \$loop = \$__env->getLastLoop();")
+            );
+        } else {
+            $path->wrapIn(
+                Builder::phpTag("\$__currentLoopData = {$loop->variable}; \$__env->addLoop(\$__currentLoopData); foreach(\$__currentLoopData as {$loop->alias}): \$__env->incrementLoopIndices(); \$loop = \$__env->getLastLoop();"),
+                Builder::phpTag('endforeach; $__env->popLoop(); $loop = $__env->getLastLoop();')
+            );
         }
     }
 
     protected function handleEmpty(NodePath $path, ElementNode $elem, string $attrName): void
     {
+        $counter = array_pop($this->forelseCounterStack);
+        $emptyVar = '$__empty_'.$counter;
+
         $path->removeAttribute($attrName)
-            ->insertBefore(Builder::directive('empty'))
-            ->insertAfter(Builder::directive('endforelse'));
+            ->wrapIn(
+                Builder::phpTag("endforeach; \$__env->popLoop(); \$loop = \$__env->getLastLoop(); if ({$emptyVar}):"),
+                Builder::phpTag('endif;')
+            );
     }
 
     /**

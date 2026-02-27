@@ -42,10 +42,11 @@ class RewriteContext
             replacement: $this->normalizeSpecs($replacement)
         );
 
-        // Preserve insertBefore/insertAfter from an existing operation
+        // Preserve insertBefore/insertAfter/wrapStack from an existing operation
         if ($existing !== null) {
             $op->insertBefore = $existing->insertBefore;
             $op->insertAfter = $existing->insertAfter;
+            $op->wrapStack = $existing->wrapStack;
         }
 
         $this->operations[$node->index()] = $op;
@@ -68,6 +69,22 @@ class RewriteContext
     {
         $op = $this->operations[$node->index()] ?? new Operation(OperationType::Keep, $node);
         $op->insertAfter = array_merge($op->insertAfter, $this->normalizeSpecs($nodes));
+        $this->operations[$node->index()] = $op;
+    }
+
+    /**
+     * Queue a paired wrap (open + close) around a node.
+     *
+     * @param  NodeBuilder|array<NodeBuilder>|string  $before
+     * @param  NodeBuilder|array<NodeBuilder>|string  $after
+     */
+    public function queueWrapPair(Node $node, NodeBuilder|array|string $before, NodeBuilder|array|string $after): void
+    {
+        $op = $this->operations[$node->index()] ?? new Operation(OperationType::Keep, $node);
+        $op->wrapStack[] = [
+            'before' => $this->normalizeSpecs($before),
+            'after' => $this->normalizeSpecs($after),
+        ];
         $this->operations[$node->index()] = $op;
     }
 

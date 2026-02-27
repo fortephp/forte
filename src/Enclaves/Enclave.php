@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Forte\Enclaves;
 
 use Forte\Ast\Document\Document;
+use Forte\Enclaves\Rewriters\AttributeDirectiveCoordinator;
 use Forte\Enclaves\Rewriters\ConditionalAttributesRewriter;
 use Forte\Enclaves\Rewriters\ForeachAttributeRewriter;
 use Forte\Enclaves\Rewriters\ForelseAttributeRewriter;
@@ -57,6 +58,8 @@ class Enclave
      * Sequence counter for order-based priority.
      */
     private int $sequenceCounter = 0;
+
+    private ?AttributeDirectiveCoordinator $attributeCoordinator = null;
 
     /**
      * Include one or more paths using glob-like patterns in the enclave.
@@ -215,7 +218,10 @@ class Enclave
      */
     public function elementForeachAttributes(string $prefix = '#'): self
     {
-        return $this->use(new ForeachAttributeRewriter($prefix));
+        $this->getAttributeCoordinator()
+            ->addDirective(new ForeachAttributeRewriter($prefix));
+
+        return $this;
     }
 
     /**
@@ -228,7 +234,10 @@ class Enclave
      */
     public function elementForelseAttributes(string $prefix = '#'): self
     {
-        return $this->use(new ForelseAttributeRewriter($prefix));
+        $this->getAttributeCoordinator()
+            ->addDirective(new ForelseAttributeRewriter($prefix));
+
+        return $this;
     }
 
     /**
@@ -240,7 +249,20 @@ class Enclave
      */
     public function elementConditionalAttributes(string $prefix = '#'): self
     {
-        return $this->use(new ConditionalAttributesRewriter($prefix));
+        $this->getAttributeCoordinator()
+            ->addDirective(new ConditionalAttributesRewriter($prefix));
+
+        return $this;
+    }
+
+    private function getAttributeCoordinator(): AttributeDirectiveCoordinator
+    {
+        if ($this->attributeCoordinator === null) {
+            $this->attributeCoordinator = new AttributeDirectiveCoordinator;
+            $this->addRewriter($this->attributeCoordinator);
+        }
+
+        return $this->attributeCoordinator;
     }
 
     /**
