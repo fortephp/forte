@@ -9,6 +9,15 @@ use Livewire\Blaze\BlazeServiceProvider;
 
 class BlazeTestCase extends ForteTestCase
 {
+    protected function setUp(): void
+    {
+        if (! class_exists(BlazeServiceProvider::class)) {
+            $this->markTestSkipped('Blaze is not installed.');
+        }
+
+        parent::setUp();
+    }
+
     protected function getPackageProviders($app)
     {
         $providers = parent::getPackageProviders($app);
