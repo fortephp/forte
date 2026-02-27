@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Forte\Ast;
 
 use Forte\Ast\Concerns\HasDirectiveName;
+use Illuminate\Support\LazyCollection;
 
+/**
+ * @property-read LazyCollection<int, DirectiveNode> $intermediateDirectives
+ */
 class DirectiveBlockNode extends Node
 {
     use HasDirectiveName;
@@ -181,6 +185,23 @@ class DirectiveBlockNode extends Node
     }
 
     /**
+     * @return array<DirectiveNode>
+     */
+    public function getIntermediateDirectives(): array
+    {
+        return iterator_to_array($this->intermediateDirectives());
+    }
+
+    public function __get(string $name): mixed
+    {
+        return match ($name) {
+            // @phpstan-ignore-next-line
+            'intermediateDirectives' => LazyCollection::make(fn () => $this->intermediateDirectives()),
+            default => null,
+        };
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function jsonSerialize(): array
@@ -212,7 +233,7 @@ class DirectiveBlockNode extends Node
 
         $data['intermediate_directives'] = array_map(
             fn (DirectiveNode $d) => $d->nameText(),
-            iterator_to_array($this->intermediateDirectives())
+            $this->getIntermediateDirectives()
         );
 
         return $data;
