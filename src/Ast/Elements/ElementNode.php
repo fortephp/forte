@@ -207,6 +207,7 @@ class ElementNode extends Node
         $meta = $this->document->getSyntheticMeta($this->index);
 
         if ($meta !== null && isset($meta['attributes']) && is_array($meta['attributes'])) {
+            /** @var list<array{0: string, 1: string|true}> */
             return $meta['attributes'];
         }
 
