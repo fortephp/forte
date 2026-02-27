@@ -53,6 +53,10 @@ jobs:
           command: |
             composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
+      - name: Install Blaze
+        run: composer require "livewire/blaze:^1.0.2" --dev --no-interaction
+        continue-on-error: true
+
       - name: List Installed Dependencies
         run: composer show -D
 
