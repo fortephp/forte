@@ -131,6 +131,37 @@ describe('JSON Serialization', function (): void {
                 ->and($json['has_arguments'])->toBeTrue()
                 ->and($json['arguments'])->toBe("(['color' => 'red'])");
         });
+
+        it('serializes malformed directives without child type crashes', function (): void {
+            $template = '<l<?=@n>@endphp<><?=?>@for{';
+            $doc = $this->parse($template);
+
+            $directive = null;
+            $stack = $doc->getChildren();
+
+            while ($stack !== []) {
+                $node = array_pop($stack);
+
+                if ($node instanceof \Forte\Ast\DirectiveNode) {
+                    $directive = $node;
+
+                    break;
+                }
+
+                foreach ($node->children() as $child) {
+                    if ($child instanceof \Forte\Ast\Node) {
+                        $stack[] = $child;
+                    }
+                }
+            }
+
+            expect($directive)->not()->toBeNull();
+
+            $json = $directive->jsonSerialize();
+
+            expect($json['type'])->toBe('directive')
+                ->and($json['children'])->toBeArray();
+        });
     });
 
     describe('DirectiveBlockNode', function (): void {

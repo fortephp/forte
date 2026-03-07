@@ -17,7 +17,7 @@ trait ProcessesElements
     protected function processElementStart(): void
     {
         $tokens = $this->tokens;
-        $tokenCount = count($tokens);
+        $tokenCount = $this->tokenTotal;
         $startPos = $this->pos;
 
         $this->pos++;
@@ -136,7 +136,7 @@ trait ProcessesElements
     protected function processElementEnd(): void
     {
         $tokens = $this->tokens;
-        $tokenCount = count($tokens);
+        $tokenCount = $this->tokenTotal;
 
         // Positioned at Slash after "<"
         $startPos = $this->pos - 1;
@@ -245,7 +245,7 @@ trait ProcessesElements
     protected function hasAttributeTokens(int $startPos, int $endPos): bool
     {
         $tokens = $this->tokens;
-        $limit = min($endPos, count($tokens));
+        $limit = min($endPos, $this->tokenTotal);
 
         for ($i = $startPos; $i < $limit; $i++) {
             $type = $tokens[$i]['type'];

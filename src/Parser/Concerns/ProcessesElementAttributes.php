@@ -201,14 +201,14 @@ trait ProcessesElementAttributes
 
         if ($bounds['length'] <= 3 && ConstructScanner::isEchoStart($firstType)) {
             $this->pos = $attrStart;
-            $this->processConstructInAttributes(default: NodeKind::Echo);
+            $this->processConstructInAttributes(default: NodeKind::Echo, limit: $attrEnd);
 
             return;
         }
 
         if ($bounds['length'] <= 5 && ConstructScanner::isPhpStart($firstType)) {
             $this->pos = $attrStart;
-            $this->processConstructInAttributes(default: NodeKind::PhpTag);
+            $this->processConstructInAttributes(default: NodeKind::PhpTag, limit: $attrEnd);
 
             return;
         }
@@ -233,7 +233,7 @@ trait ProcessesElementAttributes
     protected function findAttributeRegionEnd(): int
     {
         $attrEnd = $this->pos;
-        $tokenCount = count($this->tokens);
+        $tokenCount = $this->tokenTotal;
 
         while ($attrEnd < $tokenCount) {
             $type = $this->tokens[$attrEnd]['type'];
@@ -366,10 +366,10 @@ trait ProcessesElementAttributes
     /**
      * Handle the generic construct processing for getEchoes / PHP blocks in attributes.
      */
-    protected function processConstructInAttributes(int $default): void
+    protected function processConstructInAttributes(int $default, ?int $limit = null): void
     {
         $startPos = $this->pos;
-        $tokenCount = count($this->tokens);
+        $tokenCount = $limit ?? $this->tokenTotal;
         $startType = $this->tokens[$startPos]['type'];
 
         $nodeKind = ConstructScanner::getNodeKind($startType) ?? $default;
@@ -455,12 +455,10 @@ trait ProcessesElementAttributes
             return $type === TokenType::AttributeValue || $type === TokenType::Text;
         }
 
-        return in_array($type, [
-            TokenType::AttributeName,
-            TokenType::BoundAttribute,
-            TokenType::EscapedAttribute,
-            TokenType::ShorthandAttribute,
-            TokenType::Text,
-        ], true);
+        return $type === TokenType::AttributeName
+            || $type === TokenType::BoundAttribute
+            || $type === TokenType::EscapedAttribute
+            || $type === TokenType::ShorthandAttribute
+            || $type === TokenType::Text;
     }
 }

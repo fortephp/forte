@@ -222,7 +222,36 @@ class TreeBuilder
             TokenType::PhpBlockStart => $this->createPhpBlock($this->pos),
             TokenType::PhpTagStart => $this->createPhpTag($this->pos),
             TokenType::PhpBlockEnd => $this->processOrphanPhpBlockEnd(),
-            TokenType::ConditionalCommentEnd, TokenType::GreaterThan => $this->emitSingleTokenText(),
+            TokenType::PhpBlock,
+            TokenType::PhpContent,
+            TokenType::PhpTagEnd,
+            TokenType::SyntheticClose,
+            TokenType::EchoEnd,
+            TokenType::EchoContent,
+            TokenType::RawEchoEnd,
+            TokenType::TripleEchoEnd,
+            TokenType::DirectiveArgs,
+            TokenType::VerbatimEnd,
+            TokenType::CommentEnd,
+            TokenType::BladeCommentEnd,
+            TokenType::Doctype,
+            TokenType::DoctypeEnd,
+            TokenType::CdataEnd,
+            TokenType::PIEnd,
+            TokenType::DeclEnd,
+            TokenType::ConditionalCommentEnd,
+            TokenType::GreaterThan,
+            TokenType::TsxGenericType,
+            TokenType::JsxShorthandAttribute,
+            TokenType::JsxAttributeValue,
+            TokenType::AttributeName,
+            TokenType::AttributeValue,
+            TokenType::BoundAttribute,
+            TokenType::EscapedAttribute,
+            TokenType::ShorthandAttribute,
+            TokenType::Slash,
+            TokenType::Equals,
+            TokenType::Quote => $this->emitSingleTokenText(),
             default => $this->pos++,
         };
     }
@@ -309,15 +338,15 @@ class TreeBuilder
             return $this->detachedParent;
         }
 
-        $last = end($this->openElements);
+        $lastIndex = count($this->openElements) - 1;
 
-        return $last !== false ? $last : 0;
+        return $lastIndex >= 0 ? $this->openElements[$lastIndex] : 0;
     }
 
     protected function implicitlyCloseVoidElements(): void
     {
         while (count($this->openElements) > 1) {
-            $topIdx = end($this->openElements);
+            $topIdx = $this->openElements[count($this->openElements) - 1];
             $tagName = $this->tagNames[$topIdx] ?? null;
 
             if ($tagName === null || ! isset(VoidElements::$voidElements[$tagName])) {
@@ -343,10 +372,18 @@ class TreeBuilder
         if ($parent['lastChild'] !== self::NONE) {
             $lastChildIdx = $parent['lastChild'];
             if ($this->nodes[$lastChildIdx]['kind'] === NodeKind::Text) {
-                $this->nodes[$lastChildIdx]['tokenCount']++;
-                $this->pos++;
+                $lastStart = $this->nodes[$lastChildIdx]['tokenStart'];
+                $lastCount = $this->nodes[$lastChildIdx]['tokenCount'];
+                $expectedNextToken = $lastStart + $lastCount;
 
-                return;
+                // Only merge adjacent text token spans; gaps can appear when
+                // malformed input emits skipped structural tokens.
+                if ($expectedNextToken === $this->pos) {
+                    $this->nodes[$lastChildIdx]['tokenCount']++;
+                    $this->pos++;
+
+                    return;
+                }
             }
         }
 
@@ -406,7 +443,8 @@ class TreeBuilder
      */
     protected function popIfTop(int $idx): void
     {
-        if (end($this->openElements) === $idx) {
+        $lastIndex = count($this->openElements) - 1;
+        if ($lastIndex >= 0 && $this->openElements[$lastIndex] === $idx) {
             $poppedIdx = array_pop($this->openElements);
             $this->cleanupTagNameStack($poppedIdx);
         }
@@ -457,6 +495,10 @@ class TreeBuilder
         $savedDetachedParent = $this->detachedParent;
         $savedOpenDirectives = $this->openDirectives;
         $savedOpenConditions = $this->openConditions;
+        $sentinelLookup = [];
+        foreach ($sentinels as $sentinel) {
+            $sentinelLookup[$sentinel] = true;
+        }
 
         $this->detachedParent = $parentIdx;
         $this->openDirectives = [];
@@ -466,7 +508,7 @@ class TreeBuilder
             while ($this->pos < $this->tokenTotal) {
                 $tokenType = $this->tokens[$this->pos]['type'];
 
-                if (in_array($tokenType, $sentinels, true)) {
+                if (isset($sentinelLookup[$tokenType])) {
                     $insideBlock = ! empty($this->openDirectives) || ! empty($this->openConditions);
                     if ($tokenType === TokenType::Whitespace && $insideBlock) {
                         $this->processToken();

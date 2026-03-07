@@ -22,6 +22,9 @@ class Rewriter implements AstRewriter
     /** @var array<RewriteVisitor> */
     private array $visitors = [];
 
+    /** @var array<int, true> */
+    private array $skipChildrenDuringCollect = [];
+
     /**
      * Add a visitor to the rewriter.
      */
@@ -42,7 +45,7 @@ class Rewriter implements AstRewriter
         }
 
         $context = new RewriteContext;
-        $builder = new DocumentBuilder($doc);
+        $this->skipChildrenDuringCollect = [];
 
         $childIndex = 0;
         foreach ($doc->children() as $child) {
@@ -50,18 +53,34 @@ class Rewriter implements AstRewriter
                 break;
             }
 
-            $this->processNode($child, null, $childIndex++, $context, $builder);
+            $this->collectNode($child, null, $childIndex++, $context, $doc);
+        }
+
+        // If visitors only inspected the tree (no queued operations), preserve exact
+        // source fidelity by returning the original document unchanged.
+        if (! $context->hasOperations()) {
+            return $doc;
+        }
+
+        // Only honor skipChildren marks made during enter traversal.
+        $context->replaceSkipChildren($this->skipChildrenDuringCollect);
+        $context->resetStopRequest();
+
+        $builder = new DocumentBuilder($doc);
+        $childIndex = 0;
+        foreach ($doc->children() as $child) {
+            $this->emitNode($child, null, $childIndex++, $context, $builder);
         }
 
         return $builder->build();
     }
 
-    private function processNode(
+    private function collectNode(
         Node $node,
         ?NodePath $parentPath,
         int $indexInParent,
         RewriteContext $context,
-        DocumentBuilder $builder
+        Document $document
     ): void {
         if ($context->isStopRequested()) {
             return;
@@ -71,7 +90,7 @@ class Rewriter implements AstRewriter
             $node,
             $parentPath,
             $indexInParent,
-            $builder->sourceDocument(),
+            $document,
             $context
         );
 
@@ -81,25 +100,44 @@ class Rewriter implements AstRewriter
 
         $enterOp = $context->getOperation($node);
 
-        $outputIndex = $this->applyOperation($node, $enterOp, $path, $context, $builder);
-
         if (! $this->isKeepOperation($enterOp)) {
             return;
         }
 
-        // Snapshot enter-phase state before leave callbacks can modify the shared Operation object.
-        $enterAttrSnapshot = $enterOp !== null ? $enterOp->attributeChanges : [];
-        $enterTagSnapshot = $enterOp?->newTagName;
+        if ($context->shouldSkipChildren($node)) {
+            $this->skipChildrenDuringCollect[$node->index()] = true;
+        } else {
+            $childIndex = 0;
+            foreach ($this->nodeChildren($node) as $child) {
+                if ($context->isStopRequested()) {
+                    break;
+                }
 
-        if ($this->runVisitorsLeave($path, $context)) {
-            return;
+                $this->collectNode($child, $path, $childIndex++, $context, $document);
+            }
         }
 
-        if ($outputIndex !== null && $node instanceof ElementNode) {
-            $this->applyLeaveElementModifications($node, $enterAttrSnapshot, $enterTagSnapshot, $outputIndex, $context, $builder);
-        }
+        $this->runVisitorsLeave($path, $context);
+    }
 
-        $this->processLeaveInsertAfter($node, $enterOp, $context, $builder);
+    private function emitNode(
+        Node $node,
+        ?NodePath $parentPath,
+        int $indexInParent,
+        RewriteContext $context,
+        DocumentBuilder $builder
+    ): void {
+        $path = new NodePath(
+            $node,
+            $parentPath,
+            $indexInParent,
+            $builder->sourceDocument(),
+            $context
+        );
+
+        $operation = $context->getOperation($node);
+
+        $this->applyOperation($node, $operation, $path, $context, $builder);
     }
 
     /**
@@ -140,7 +178,11 @@ class Rewriter implements AstRewriter
 
             case OperationType::ReplaceChildren:
                 assert($operation !== null);
-                $this->copyNodeReplaceChildren($node, $operation, $builder);
+                if ($node instanceof ElementNode && $this->shouldModifyElement($node, $operation)) {
+                    $this->copyElementReplaceChildrenWithModifications($node, $operation, $builder);
+                } else {
+                    $this->copyNodeReplaceChildren($node, $operation, $builder);
+                }
                 break;
 
             case OperationType::Keep:
@@ -195,7 +237,7 @@ class Rewriter implements AstRewriter
             }
 
             if (isset($contentChildren[$child->index()])) {
-                $this->processNode($child, $path, $childIndex++, $context, $builder);
+                $this->emitNode($child, $path, $childIndex++, $context, $builder);
 
                 continue;
             }
@@ -251,12 +293,12 @@ class Rewriter implements AstRewriter
         $this->emitInsertions($operation->prependChildren, $builder);
 
         $childIndex = 0;
-        foreach ($element->children() as $child) {
+        foreach ($this->nodeChildren($element) as $child) {
             if ($context->isStopRequested()) {
                 break;
             }
 
-            $this->processNode($child, $path, $childIndex++, $context, $builder);
+            $this->emitNode($child, $path, $childIndex++, $context, $builder);
         }
 
         $this->emitInsertions($operation->appendChildren, $builder);
@@ -270,6 +312,7 @@ class Rewriter implements AstRewriter
         $newIndex = $builder->copyNode($node, forComposition: true);
         $builder->pushParent($newIndex);
 
+        $replacement = $this->replacementWithChildSideEffects($operation);
         $contentChildren = $this->indexContentChildren($node);
         $inserted = false;
 
@@ -281,15 +324,43 @@ class Rewriter implements AstRewriter
             }
 
             if (! $inserted) {
-                $this->emitInsertions($operation->replacement ?? [], $builder);
+                $this->emitInsertions($replacement, $builder);
                 $inserted = true;
             }
         }
 
         if (! $inserted) {
-            $this->emitInsertions($operation->replacement ?? [], $builder);
+            $this->emitInsertions($replacement, $builder);
         }
 
+        $builder->popParent();
+    }
+
+    private function copyElementReplaceChildrenWithModifications(
+        ElementNode $element,
+        Operation $operation,
+        DocumentBuilder $builder
+    ): void {
+        $spec = $this->buildElementSpec($element, $operation, $builder->sourceDocument());
+        $meta = $builder->sourceDocument()->getSyntheticMeta($element->index());
+        $selfClosing = ($meta['selfClosing'] ?? false) || $element->isSelfClosing();
+        $void = ($meta['void'] ?? false) || $element->isVoid();
+
+        if ($selfClosing) {
+            $spec->selfClosing();
+        } elseif ($void) {
+            $spec->void();
+        }
+
+        if ($selfClosing || $void) {
+            $builder->addSyntheticNode($spec);
+
+            return;
+        }
+
+        $newIndex = $builder->addSyntheticElement($spec);
+        $builder->pushParent($newIndex);
+        $this->emitInsertions($this->replacementWithChildSideEffects($operation), $builder);
         $builder->popParent();
     }
 
@@ -329,12 +400,12 @@ class Rewriter implements AstRewriter
         DocumentBuilder $builder
     ): void {
         $childIndex = 0;
-        foreach ($node->children() as $child) {
+        foreach ($this->nodeChildren($node) as $child) {
             if ($context->isStopRequested()) {
                 break;
             }
 
-            $this->processNode($child, $path, $childIndex++, $context, $builder);
+            $this->emitNode($child, $path, $childIndex++, $context, $builder);
         }
     }
 
@@ -394,66 +465,6 @@ class Rewriter implements AstRewriter
         }
 
         return false;
-    }
-
-    private function processLeaveInsertAfter(
-        Node $node,
-        ?Operation $initialOp,
-        RewriteContext $context,
-        DocumentBuilder $builder
-    ): void {
-        $leaveOp = $context->getOperation($node);
-
-        if ($leaveOp === null || $leaveOp->insertAfter === []) {
-            return;
-        }
-
-        $already = $initialOp !== null ? count($initialOp->insertAfter) : 0;
-        if ($already >= count($leaveOp->insertAfter)) {
-            return;
-        }
-
-        $newInserts = array_slice($leaveOp->insertAfter, $already);
-        $this->emitInsertions($newInserts, $builder);
-    }
-
-    /**
-     * Apply element modifications (attribute changes, tag renames) queued during the leave phase.
-     *
-     * @param  array<string, string|null>  $enterAttrSnapshot  Attribute changes from the enter phase
-     * @param  string|null  $enterTagSnapshot  Tag name from the enter phase
-     */
-    private function applyLeaveElementModifications(
-        ElementNode $element,
-        array $enterAttrSnapshot,
-        ?string $enterTagSnapshot,
-        int $outputIndex,
-        RewriteContext $context,
-        DocumentBuilder $builder
-    ): void {
-        $leaveOp = $context->getOperation($element);
-
-        if ($leaveOp === null) {
-            return;
-        }
-
-        if ($leaveOp->attributeChanges === $enterAttrSnapshot && $leaveOp->newTagName === $enterTagSnapshot) {
-            return;
-        }
-
-        $spec = $this->buildElementSpec($element, $leaveOp, $builder->sourceDocument());
-
-        $meta = $builder->sourceDocument()->getSyntheticMeta($element->index());
-        $selfClosing = ($meta['selfClosing'] ?? false) || $element->isSelfClosing();
-        $void = ($meta['void'] ?? false) || $element->isVoid();
-
-        if ($selfClosing) {
-            $spec->selfClosing();
-        } elseif ($void) {
-            $spec->void();
-        }
-
-        $builder->patchElementMeta($outputIndex, $spec);
     }
 
     private function isKeepOperation(?Operation $operation): bool
@@ -579,10 +590,40 @@ class Rewriter implements AstRewriter
     {
         $indexed = [];
 
-        foreach ($node->children() as $child) {
+        foreach ($this->nodeChildren($node) as $child) {
             $indexed[$child->index()] = true;
         }
 
         return $indexed;
+    }
+
+    /**
+     * Filter child iterables down to rewritable AST nodes.
+     *
+     * Some node implementations expose non-Node wrappers (for example `Attribute`)
+     * in `children()` for malformed-source fidelity. The rewriter only traverses Node
+     * instances and preserves non-Node children via flat-node copying paths.
+     *
+     * @return iterable<Node>
+     */
+    private function nodeChildren(Node $node): iterable
+    {
+        foreach ($node->children() as $child) {
+            if ($child instanceof Node) {
+                yield $child;
+            }
+        }
+    }
+
+    /**
+     * @return array<NodeBuilder>
+     */
+    private function replacementWithChildSideEffects(Operation $operation): array
+    {
+        return array_merge(
+            $operation->prependChildren,
+            $operation->replacement ?? [],
+            $operation->appendChildren
+        );
     }
 }

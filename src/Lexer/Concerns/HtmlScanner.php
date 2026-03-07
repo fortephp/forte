@@ -9,8 +9,6 @@ use Forte\Lexer\Tokens\TokenType;
 
 trait HtmlScanner
 {
-    private const RAWTEXT_ELEMENTS = ['script', 'style'];
-
     private function checkRawtextMode(): State
     {
         // Only enter rawtext for opening tags, not closing tags or self-closing
@@ -19,7 +17,7 @@ trait HtmlScanner
         }
 
         $tagNameLower = strtolower($this->currentTagName);
-        if (in_array($tagNameLower, self::RAWTEXT_ELEMENTS, true)) {
+        if ($tagNameLower === 'script' || $tagNameLower === 'style') {
             $this->rawtextTagName = $tagNameLower;
 
             return State::RawText;
@@ -111,6 +109,20 @@ trait HtmlScanner
             return;
         }
 
+        // Malformed closing tag with leading whitespace before a Blade echo-like
+        // sequence (e.g. "</\r{{"). Close the current tag and rewind so the
+        // skipped whitespace is preserved as data.
+        if ($this->isClosingTag
+            && $start < $this->pos
+            && $this->pos < $this->len
+            && $this->source[$this->pos] === '{') {
+            $this->emitToken(TokenType::SyntheticClose, $start, $start);
+            $this->pos = $start;
+            $this->state = State::Data;
+
+            return;
+        }
+
         $nameStart = $this->pos;
 
         while ($this->pos < $this->len) {
@@ -118,14 +130,17 @@ trait HtmlScanner
 
             // Check for Blade echo in the tag name (e.g., <{{ $element }}>)
             if ($ch === '{' && ! $this->verbatim && ! $this->phpBlock && ! $this->phpTag) {
-                // Emit tag name content before echo if any
-                if ($this->pos > $nameStart) {
-                    $this->emitToken(TokenType::TagName, $nameStart, $this->pos);
-                }
-
                 // Try to scan Blade echo
                 $savedPos = $this->pos;
                 if ($this->peekAhead(1) === '{') {
+                    if ($start < $nameStart) {
+                        $this->emitToken(TokenType::Whitespace, $start, $nameStart);
+                    }
+
+                    if ($this->pos > $nameStart) {
+                        $this->emitToken(TokenType::TagName, $nameStart, $this->pos);
+                    }
+
                     // Check for {{--
                     if ($this->peekAhead(2) === '-' && $this->peekAhead(3) === '-') {
                         $this->returnState = State::TagName;
@@ -143,6 +158,14 @@ trait HtmlScanner
 
                     return;
                 } elseif ($this->peekAhead(1) === '!' && $this->peekAhead(2) === '!') {
+                    if ($start < $nameStart) {
+                        $this->emitToken(TokenType::Whitespace, $start, $nameStart);
+                    }
+
+                    if ($this->pos > $nameStart) {
+                        $this->emitToken(TokenType::TagName, $nameStart, $this->pos);
+                    }
+
                     // Scan {!! raw echo
                     $this->returnState = State::TagName;
                     $this->continuedTagName = true;
@@ -165,6 +188,43 @@ trait HtmlScanner
             }
         }
 
+        // Preserve whitespace between < and a recovered tag name.
+        // This keeps token reconstruction lossless for malformed tags like "<\\nname" or "</ @e".
+        if ($start < $nameStart && $nameStart < $this->pos) {
+            $this->emitToken(TokenType::Whitespace, $start, $nameStart);
+        }
+
+        // Preserve skipped leading whitespace when no tag-name bytes were
+        // consumed and the next byte cannot start a valid name/construct.
+        if ($start < $nameStart && $nameStart === $this->pos && $this->pos < $this->len) {
+            $next = $this->source[$this->pos];
+            $canStartName = ctype_alnum((string) $next)
+                || $next === '-'
+                || $next === ':'
+                || $next === '_'
+                || $next === '@'
+                || $next === '.'
+                || $next === '['
+                || $next === ']'
+                || $next === '$';
+            $canStartBladeConstruct = ! $this->verbatim
+                && ! $this->phpBlock
+                && ! $this->phpTag
+                && $next === '{'
+                && (
+                    $this->peekAhead(1) === '{'
+                    || ($this->peekAhead(1) === '!' && $this->peekAhead(2) === '!')
+                );
+
+            if (! $canStartName
+                && ! $canStartBladeConstruct
+                && $next !== '<'
+                && $next !== '>'
+                && $next !== '/') {
+                $this->emitToken(TokenType::Whitespace, $start, $nameStart);
+            }
+        }
+
         // Emit tag name and accumulate for rawtext check
         if ($nameStart < $this->pos) {
             $tagNamePart = substr($this->source, $nameStart, $this->pos - $nameStart);
@@ -184,6 +244,11 @@ trait HtmlScanner
         $ch = $this->source[$this->pos];
 
         if ($ch === '<') {
+            // Preserve skipped leading whitespace for malformed sequences like "<\t<".
+            if ($start < $nameStart && $nameStart === $this->pos) {
+                $this->emitToken(TokenType::Whitespace, $start, $nameStart);
+            }
+
             // Check for PHP tag first
             if ($this->pos + 1 < $this->len && $this->source[$this->pos + 1] === '?') {
                 if ($this->tryScanPhpTag()) {
@@ -215,20 +280,32 @@ trait HtmlScanner
             $this->state = $this->checkRawtextMode();
         } elseif ($ch === '/') {
             // Self-closing tag: <br/>
-            $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);
+            $slashStart = $this->pos;
             $this->pos++;
 
             // Skip whitespace before >
+            $wsStart = $this->pos;
             $this->skipWhitespace();
 
             // Expect >
             if ($this->pos < $this->len && $this->source[$this->pos] === '>') {
+                // Preserve optional whitespace between / and >.
+                $this->emitToken(TokenType::Slash, $slashStart, $this->pos);
                 $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                 $this->pos++;
                 $this->state = State::Data;  // Self-closing never enters rawtext
             } else {
-                // Malformed self-closing tag, but continue
-                $this->state = State::BeforeAttrName;
+                $this->emitToken(TokenType::Slash, $slashStart, $wsStart);
+
+                if ($this->pos > $wsStart) {
+                    // Preserve skipped whitespace for malformed "/\\s+<next>" tails.
+                    $this->emitToken(TokenType::SyntheticClose, $wsStart, $wsStart);
+                    $this->pos = $wsStart;
+                    $this->state = State::Data;
+                } else {
+                    // Malformed self-closing tag, but continue
+                    $this->state = State::BeforeAttrName;
+                }
             }
         } elseif (ctype_space((string) $ch)) {
             // Whitespace after tag name.
@@ -424,7 +501,7 @@ trait HtmlScanner
             $this->state = $this->checkRawtextMode();
         } elseif ($ch === '/') {
             // Possible self-closing tag: />
-            $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);
+            $slashStart = $this->pos;
             $this->pos++;
 
             // Skip whitespace before >
@@ -436,13 +513,23 @@ trait HtmlScanner
             // Expect >
 
             if ($this->pos < $this->len && $this->source[$this->pos] === '>') {
+                $this->emitToken(TokenType::Slash, $slashStart, $this->pos);
                 $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                 $this->pos++;
                 // Self-closing never enters rawtext
             } elseif ($this->pos >= $this->len) {
-                // EOF after /
-                $this->emitToken(TokenType::SyntheticClose, $this->pos, $this->pos);
+                $this->emitToken(TokenType::Slash, $slashStart, $wsStart);
+
+                // EOF after /. Preserve skipped whitespace by rewinding when needed.
+                if ($this->pos > $wsStart) {
+                    $this->emitToken(TokenType::SyntheticClose, $wsStart, $wsStart);
+                    $this->pos = $wsStart;
+                } else {
+                    $this->emitToken(TokenType::SyntheticClose, $this->pos, $this->pos);
+                }
             } else {
+                $this->emitToken(TokenType::Slash, $slashStart, $wsStart);
+
                 // Malformed self-closing tag (e.g., /\n< instead of />)
                 // Emit SyntheticClose for error recovery, then reset position
                 // to after the slash so whitespace becomes text content

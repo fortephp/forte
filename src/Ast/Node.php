@@ -14,6 +14,7 @@ use Forte\Ast\Concerns\ManagesSiblingPredicates;
 use Forte\Ast\Concerns\ManagesTreeContainment;
 use Forte\Ast\Document\Document;
 use Forte\Ast\Document\NodeCollection;
+use Forte\Ast\Elements\ElementNode;
 use Forte\Parser\NodeKind;
 use Forte\Parser\TreeBuilder;
 use JsonSerializable;
@@ -35,14 +36,14 @@ abstract class Node implements JsonSerializable, Stringable
 
     private const NONE = -1;
 
-    private const INTERNAL_KINDS = [
-        NodeKind::ElementName,
-        NodeKind::ClosingElementName,
-        NodeKind::Attribute,
-        NodeKind::JsxAttribute,
-        NodeKind::AttributeName,
-        NodeKind::AttributeValue,
-        NodeKind::AttributeWhitespace,
+    private const INTERNAL_KIND_SET = [
+        NodeKind::ElementName => true,
+        NodeKind::ClosingElementName => true,
+        NodeKind::Attribute => true,
+        NodeKind::JsxAttribute => true,
+        NodeKind::AttributeName => true,
+        NodeKind::AttributeValue => true,
+        NodeKind::AttributeWhitespace => true,
     ];
 
     public function __construct(protected Document $document, protected int $index) {}
@@ -204,9 +205,15 @@ abstract class Node implements JsonSerializable, Stringable
             return $this->document->getSyntheticContent($this->index) ?? '';
         }
 
-        // Check if any descendant is synthetic - if so, we need to compose the content.
+        // Synthetic descendants require composed rendering.
         if ($this->hasSyntheticDescendant()) {
             return $this->renderComposed();
+        }
+
+        // Recovered trees can attach child tokens beyond a node's token span.
+        // Expand the raw slice to preserve exact source fidelity in those cases.
+        if ($this->hasOutOfRangeChildTokens()) {
+            return $this->renderExpandedTokenRange();
         }
 
         // No synthetic descendants - we have hit the happy path!
@@ -228,6 +235,83 @@ abstract class Node implements JsonSerializable, Stringable
     }
 
     /**
+     * Detect malformed/recovered trees where direct children are outside this node's token range.
+     *
+     * In those cases, using raw source slices drops child content; composed rendering preserves fidelity.
+     */
+    protected function hasOutOfRangeChildTokens(): bool
+    {
+        $flat = $this->flat();
+        $tokenStart = $flat['tokenStart'];
+        $tokenCount = $flat['tokenCount'];
+
+        if ($tokenStart < 0 || $tokenCount <= 0) {
+            return false;
+        }
+
+        $nodeEnd = $tokenStart + $tokenCount - 1;
+
+        foreach ($this->allFlatChildren() as $childIdx) {
+            $childFlat = $this->document->getFlatNode($childIdx);
+            $childTokenStart = $childFlat['tokenStart'];
+            $childTokenCount = $childFlat['tokenCount'];
+
+            if ($childTokenStart >= 0 && $childTokenCount > 0) {
+                $childEnd = $childTokenStart + $childTokenCount - 1;
+                $isNonOverlapping = $childTokenStart > $nodeEnd || $childEnd < $tokenStart;
+
+                if ($isNonOverlapping) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    protected function renderExpandedTokenRange(): string
+    {
+        $flat = $this->flat();
+        $tokenStart = $flat['tokenStart'];
+        $tokenCount = $flat['tokenCount'];
+
+        if ($tokenStart < 0 || $tokenCount <= 0) {
+            return $this->getDocumentContent();
+        }
+
+        $startOffset = $this->document->getToken($tokenStart)['start'];
+        $endOffset = $this->document->getToken($tokenStart + $tokenCount - 1)['end'];
+
+        foreach ($this->allFlatChildren() as $childIdx) {
+            $childFlat = $this->document->getFlatNode($childIdx);
+            $childTokenStart = $childFlat['tokenStart'];
+            $childTokenCount = $childFlat['tokenCount'];
+
+            if ($childTokenStart >= 0 && $childTokenCount > 0) {
+                $childTokenEnd = $childTokenStart + $childTokenCount - 1;
+                $isNonOverlapping = $childTokenStart > ($tokenStart + $tokenCount - 1) || $childTokenEnd < $tokenStart;
+
+                if (! $isNonOverlapping) {
+                    continue;
+                }
+
+                $childStart = $this->document->getToken($childTokenStart)['start'];
+                $childEnd = $this->document->getToken($childTokenEnd)['end'];
+
+                if ($childStart < $startOffset) {
+                    $startOffset = $childStart;
+                }
+
+                if ($childEnd > $endOffset) {
+                    $endOffset = $childEnd;
+                }
+            }
+        }
+
+        return $this->document->getSourceSlice($startOffset, $endOffset);
+    }
+
+    /**
      * Get all flat child indices recursively.
      *
      * Includes internal nodes.
@@ -238,15 +322,25 @@ abstract class Node implements JsonSerializable, Stringable
     {
         $flat = $this->flat();
         $childIdx = $flat['firstChild'] ?? self::NONE;
+        $siblingStack = [];
 
         while ($childIdx !== self::NONE) {
             yield $childIdx;
 
-            $childNode = $this->document->getNode($childIdx);
-            yield from $childNode->allFlatChildren();
-
             $childFlat = $this->document->getFlatNode($childIdx);
-            $childIdx = $childFlat['nextSibling'] ?? self::NONE;
+            $nextSibling = $childFlat['nextSibling'] ?? self::NONE;
+            if ($nextSibling !== self::NONE) {
+                $siblingStack[] = $nextSibling;
+            }
+
+            $firstChild = $childFlat['firstChild'] ?? self::NONE;
+            if ($firstChild !== self::NONE) {
+                $childIdx = $firstChild;
+
+                continue;
+            }
+
+            $childIdx = empty($siblingStack) ? self::NONE : array_pop($siblingStack);
         }
     }
 
@@ -281,7 +375,7 @@ abstract class Node implements JsonSerializable, Stringable
             $childFlat = $this->document->getFlatNode($childIdx);
             $kind = $childFlat['kind'];
 
-            if (! in_array($kind, self::INTERNAL_KINDS, true)) {
+            if (! self::isInternalKind($kind)) {
                 yield $this->document->getNode($childIdx);
             }
 
@@ -292,11 +386,17 @@ abstract class Node implements JsonSerializable, Stringable
     /**
      * Get children.
      *
-     * @return array<Node>
+     * @return array<int, Node>
      */
     public function getChildren(): array
     {
-        return iterator_to_array($this->children());
+        $children = [];
+
+        foreach ($this->children() as $child) {
+            $children[] = $child;
+        }
+
+        return $children;
     }
 
     /**
@@ -347,7 +447,9 @@ abstract class Node implements JsonSerializable, Stringable
     public function firstChild(): ?Node
     {
         foreach ($this->children() as $child) {
-            return $child;
+            if ($child instanceof self) {
+                return $child;
+            }
         }
 
         return null;
@@ -360,7 +462,9 @@ abstract class Node implements JsonSerializable, Stringable
     {
         $last = null;
         foreach ($this->children() as $child) {
-            $last = $child;
+            if ($child instanceof self) {
+                $last = $child;
+            }
         }
 
         return $last;
@@ -374,19 +478,64 @@ abstract class Node implements JsonSerializable, Stringable
     public function descendants(): iterable
     {
         foreach ($this->children() as $child) {
-            yield $child;
-            yield from $child->descendants();
+            if ($child instanceof self) {
+                yield $child;
+                yield from $child->descendants();
+            }
         }
     }
 
     /**
      * Get all descendents as an array.
      *
-     * @return array<Node>
+     * @return array<int, Node>
      */
     public function getDescendants(): array
     {
-        return iterator_to_array($this->descendants());
+        $descendants = [];
+
+        foreach ($this->descendants() as $descendant) {
+            $descendants[] = $descendant;
+        }
+
+        return $descendants;
+    }
+
+    /**
+     * Get this node tree filtered to a specific node type.
+     *
+     * By default this uses normal children traversal only. Pass
+     * `TraversalOptions::deep()` or `true` to include element/component internals.
+     *
+     * @template T of Node
+     *
+     * @param  class-string<T>  $class
+     * @return NodeCollection<int, T>
+     */
+    public function allOfType(string $class, TraversalOptions|bool $options = false): NodeCollection
+    {
+        $options = TraversalOptions::from($options);
+        $results = [];
+
+        foreach ($this->traverseNodes($options) as $current) {
+            if ($current instanceof $class) {
+                $results[] = $current;
+            }
+        }
+
+        /** @var NodeCollection<int, T> */
+        return NodeCollection::make($results);
+    }
+
+    /**
+     * Get all echo nodes in this node tree.
+     *
+     * @return NodeCollection<int, EchoNode>
+     */
+    public function allEchoes(TraversalOptions|bool $options = false): NodeCollection
+    {
+        /** @var NodeCollection<int, EchoNode> */
+        return $this->allOfType(EchoNode::class, $options);
     }
 
     /**
@@ -394,11 +543,72 @@ abstract class Node implements JsonSerializable, Stringable
      *
      * @param  callable(Node): void  $callback
      */
-    public function walk(callable $callback): void
+    public function walk(callable $callback, TraversalOptions|bool $options = false): void
     {
-        $callback($this);
-        foreach ($this->children() as $child) {
-            $child->walk($callback);
+        $options = TraversalOptions::from($options);
+
+        foreach ($this->traverseNodes($options) as $node) {
+            $callback($node);
+        }
+    }
+
+    /**
+     * Traverse this node tree in pre-order.
+     *
+     * @return iterable<Node>
+     */
+    private function traverseNodes(TraversalOptions $options): iterable
+    {
+        /** @var array<int, array{0: Node, 1: int}> $stack */
+        $stack = [[$this, 0]];
+        /** @var array<int, true> $seen */
+        $seen = [];
+
+        while ($stack !== []) {
+            $entry = array_pop($stack);
+            if ($entry === null) {
+                continue;
+            }
+
+            [$current, $depth] = $entry;
+            $index = $current->index();
+
+            if (isset($seen[$index])) {
+                continue;
+            }
+
+            if ($options->maxDepth !== null && $depth > $options->maxDepth) {
+                continue;
+            }
+
+            if (! $options->includeSynthetic && $current->isSynthetic()) {
+                continue;
+            }
+
+            $seen[$index] = true;
+            yield $current;
+
+            if ($options->maxDepth !== null && $depth === $options->maxDepth) {
+                continue;
+            }
+
+            /** @var array<int, Node> $children */
+            $children = [];
+            foreach ($current->children() as $child) {
+                if ($child instanceof self) {
+                    $children[] = $child;
+                }
+            }
+
+            if ($options->includeInternal && $current instanceof ElementNode) {
+                foreach ($current->internalNodes() as $internal) {
+                    $children[] = $internal;
+                }
+            }
+
+            for ($i = count($children) - 1; $i >= 0; $i--) {
+                $stack[] = [$children[$i], $depth + 1];
+            }
         }
     }
 
@@ -457,7 +667,7 @@ abstract class Node implements JsonSerializable, Stringable
             $kind = $nextFlat['kind'];
 
             // Skip internal structural nodes
-            if (! in_array($kind, self::INTERNAL_KINDS, true)) {
+            if (! self::isInternalKind($kind)) {
                 return $this->document->getNode($nextIdx);
             }
 
@@ -491,7 +701,7 @@ abstract class Node implements JsonSerializable, Stringable
             $kind = $childFlat['kind'];
 
             // Track non-internal nodes as potential previous siblings
-            if (! in_array($kind, self::INTERNAL_KINDS, true)) {
+            if (! self::isInternalKind($kind)) {
                 $previousIdx = $childIdx;
             }
 
@@ -505,6 +715,11 @@ abstract class Node implements JsonSerializable, Stringable
         return $this->document->getNode($previousIdx);
     }
 
+    private static function isInternalKind(int $kind): bool
+    {
+        return isset(self::INTERNAL_KIND_SET[$kind]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -512,6 +727,11 @@ abstract class Node implements JsonSerializable, Stringable
     {
         $startOffset = $this->startOffset();
         $endOffset = $this->endOffset();
+
+        $children = [];
+        foreach ($this->getChildren() as $child) {
+            $children[] = $child->jsonSerialize();
+        }
 
         return [
             'kind' => $this->kind(),
@@ -528,10 +748,7 @@ abstract class Node implements JsonSerializable, Stringable
             ],
             'is_synthetic' => $this->isSynthetic(),
             'content' => $this->getDocumentContent(),
-            'children' => array_map(
-                fn (Node $child) => $child->jsonSerialize(),
-                $this->getChildren()
-            ),
+            'children' => $children,
         ];
     }
 }

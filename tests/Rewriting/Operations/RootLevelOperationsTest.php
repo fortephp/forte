@@ -461,6 +461,46 @@ describe('Root Level Operations', function (): void {
             expect($rewriter->rewrite($doc)->render())
                 ->toBe('<ul><li>first</li><li>second</li></ul>');
         });
+
+        it('preserves element mutation side effects when replacing children', function (): void {
+            $doc = $this->parse('<div class="a">old content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function enter(NodePath $path): void
+                {
+                    if ($path->isElement() && $path->isTag('div')) {
+                        $path->setAttribute('id', 'main');
+                        $path->renameTag('section');
+                        $path->replaceChildren('new content');
+                    }
+                }
+            });
+
+            expect($rewriter->rewrite($doc)->render())
+                ->toBe('<section class="a" id="main">new content</section>');
+        });
+
+        it('preserves prepend and append side effects when replacing children', function (): void {
+            $doc = $this->parse('<div>old content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function enter(NodePath $path): void
+                {
+                    if ($path->isElement() && $path->isTag('div')) {
+                        $path->prependChildren('P');
+                        $path->replaceChildren('R');
+                        $path->appendChild('A');
+                    }
+                }
+            });
+
+            expect($rewriter->rewrite($doc)->render())
+                ->toBe('<div>PRA</div>');
+        });
     });
 
     describe('prependChildren()', function (): void {

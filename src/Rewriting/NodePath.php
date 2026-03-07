@@ -111,12 +111,14 @@ readonly class NodePath
             return $this->document->getSiblings($this->indexInParent);
         }
 
-        $siblings = $this->parentPath->node()->getChildren();
+        $siblings = [];
+        foreach ($this->parentPath->node()->getChildren() as $sibling) {
+            if ($sibling->index() !== $this->node->index()) {
+                $siblings[] = $sibling;
+            }
+        }
 
-        return array_values(array_filter(
-            $siblings,
-            fn (Node $n) => $n->index() !== $this->node->index()
-        ));
+        return $siblings;
     }
 
     /**
@@ -133,8 +135,9 @@ readonly class NodePath
         }
 
         $siblings = $this->parentPath->node()->getChildren();
+        $previousIndex = $this->indexInParent - 1;
 
-        return $siblings[$this->indexInParent - 1] ?? null;
+        return $siblings[$previousIndex] ?? null;
     }
 
     /**
@@ -147,8 +150,9 @@ readonly class NodePath
         }
 
         $siblings = $this->parentPath->node()->getChildren();
+        $nextIndex = $this->indexInParent + 1;
 
-        return $siblings[$this->indexInParent + 1] ?? null;
+        return $siblings[$nextIndex] ?? null;
     }
 
     /**

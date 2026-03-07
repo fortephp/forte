@@ -277,11 +277,11 @@ trait DataScanner
 
                 // Check for XML declaration first: <?xml
                 $beforeDecl = $this->pos;
+                if ($start < $beforeDecl) {
+                    $this->emitToken(TokenType::Text, $start, $beforeDecl);
+                    $start = $beforeDecl;
+                }
                 if ($this->tryScanDecl()) {
-                    if ($start < $beforeDecl) {
-                        $this->emitToken(TokenType::Text, $start, $beforeDecl);
-                    }
-
                     return;
                 }
 

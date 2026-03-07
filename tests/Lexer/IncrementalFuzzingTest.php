@@ -266,4 +266,141 @@ describe('Incremental Tokenization', function (): void {
             }
         }
     });
+
+    test('malformed closing tag with whitespace before tag name reconstructs exactly', function (): void {
+        $source = "@endforeach\\r\\n'(?\\r\\n3@verbatimk?>Xf@if(\$x)9</ @e";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('malformed opening tag with leading whitespace before recovered name reconstructs exactly', function (): void {
+        $source = "<\n],wire:model=\"foo\"";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('tag name followed by non-echo brace does not duplicate tag token content', function (): void {
+        $source = '<Q{';
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('nested malformed tag before blade echo preserves intervening whitespace', function (): void {
+        $source = "<d<\t{{";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('malformed tag with leading whitespace and partial name before blade echo reconstructs exactly', function (): void {
+        $source = "<d<\t7{{";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('malformed self-closing marker with trailing whitespace preserves tail content', function (): void {
+        $source = "<@/\n";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('malformed self-closing in attribute state preserves trailing whitespace at eof', function (): void {
+        $source = "<m /\t";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('self-closing marker in tag-name state preserves whitespace before closing bracket', function (): void {
+        $source = "<m/\t>";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('self-closing marker in attribute state preserves whitespace before closing bracket', function (): void {
+        $source = "<m /\t>";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
+
+    test('jsx shorthand with unterminated template escape keeps token ranges in bounds', function (): void {
+        $source = '<{`\\';
+
+        $assertBounded = function (string $input): void {
+            $lexer = new Lexer($input, Directives::acceptAll());
+            $result = $lexer->tokenize();
+            $reconstructed = Token::reconstructFromTokens($result->tokens, $input);
+
+            expect($reconstructed)->toBe($input);
+
+            $len = strlen($input);
+            $lastStart = -1;
+            foreach ($result->tokens as $idx => $token) {
+                expect($token['start'])->toBeGreaterThanOrEqual(0, "Negative start at token {$idx}")
+                    ->and($token['end'])->toBeGreaterThanOrEqual($token['start'], "End before start at token {$idx}")
+                    ->and($token['start'])->toBeLessThanOrEqual($len, "Start past input length at token {$idx}")
+                    ->and($token['end'])->toBeLessThanOrEqual($len, "End past input length at token {$idx}")
+                    ->and($token['start'])->toBeGreaterThanOrEqual($lastStart, "Non-monotonic token start at token {$idx}");
+                $lastStart = $token['start'];
+            }
+        };
+
+        for ($i = 1; $i <= strlen($source); $i++) {
+            $assertBounded(substr($source, 0, $i));
+        }
+    });
+
+    test('tag-name recovery preserves skipped whitespace when blade constructs are disabled by php block mode', function (): void {
+        $source = "<S\n@php<\n{{";
+
+        $lexer = new Lexer($source, Directives::acceptAll());
+        $result = $lexer->tokenize();
+
+        $reconstructed = Token::reconstructFromTokens($result->tokens, $source);
+
+        expect($reconstructed)->toBe($source);
+    });
 });

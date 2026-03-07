@@ -292,6 +292,29 @@ describe('Basic Rewriting', function (): void {
         expect($result->render())->toBe('<div class="keep">content</div>');
     });
 
+    it('preserves malformed source when visitors make no changes', function (): void {
+        $doc = $this->parse('<{!!');
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor {});
+
+        $result = $rewriter->rewrite($doc);
+
+        expect($result->render())->toBe('<{!!');
+    });
+
+    it('does not crash when malformed directive children expose non-node wrappers', function (): void {
+        $input = '<l<?=@n>@endphp<><?=?>@for{';
+        $doc = $this->parse($input);
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor {});
+
+        $result = $rewriter->rewrite($doc);
+
+        expect($result->render())->toBe($input);
+    });
+
     describe('contextual safe spacing', function (): void {
         it('adds space before safe directive when following word character', function (): void {
             $doc = $this->parse('<div>text</div>');
