@@ -87,7 +87,7 @@ trait ProcessesMarkup
             if ($type === TokenType::EchoStart
                 || $type === TokenType::RawEchoStart
                 || $type === TokenType::TripleEchoStart) {
-                $this->processDeclEcho();
+                $this->processDeclEcho($endPos);
 
                 continue;
             }
@@ -107,14 +107,13 @@ trait ProcessesMarkup
         array_pop($this->openElements);
     }
 
-    protected function processDeclEcho(): void
+    protected function processDeclEcho(int $declEndPos): void
     {
         $startPos = $this->pos;
-        $tokenCount = count($this->tokens);
         $startType = $this->tokens[$startPos]['type'];
 
         $nodeKind = ConstructScanner::getNodeKind($startType) ?? NodeKind::Echo;
-        $constructTokenCount = ConstructScanner::countConstructTokens($this->tokens, $startPos, $tokenCount);
+        $constructTokenCount = ConstructScanner::countConstructTokens($this->tokens, $startPos, $declEndPos);
         $this->pos += $constructTokenCount;
 
         $this->addChild($this->createNode(

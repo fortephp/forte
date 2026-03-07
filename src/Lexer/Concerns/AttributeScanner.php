@@ -545,7 +545,9 @@ trait AttributeScanner
                     continue;
                 }
 
-                // Not a PHP tag
+                // Not a PHP tag. Keep valueStart aligned with emitted content to
+                // avoid duplicating the same attribute value span at loop exit.
+                $valueStart = $savedPos;
                 break;
             }
 

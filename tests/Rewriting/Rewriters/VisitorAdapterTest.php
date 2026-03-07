@@ -143,6 +143,26 @@ describe('Traversal Order', function (): void {
                 ->toBe('<div>content</div><!-- added in leave -->');
         });
 
+        test('insertBefore in leave works correctly', function (): void {
+            $doc = $this->parse('<div>content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function leave(NodePath $path): void
+                {
+                    if ($path->isTag('div')) {
+                        $path->insertBefore('<!-- added before in leave -->');
+                    }
+                }
+            });
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())
+                ->toBe('<!-- added before in leave --><div>content</div>');
+        });
+
         test('operations in leave are processed after children', function (): void {
             $doc = $this->parse('<div><span>child</span></div>');
             $order = [];
@@ -174,6 +194,44 @@ describe('Traversal Order', function (): void {
 
             expect($order)->toBe(['enter:div', 'enter:span', 'leave:span', 'leave:div'])
                 ->and($result->render())->toBe('<div><span>child</span></div><!-- after div -->');
+        });
+
+        test('replaceWith in leave is applied after child traversal', function (): void {
+            $doc = $this->parse('<div>content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function leave(NodePath $path): void
+                {
+                    if ($path->isTag('div')) {
+                        $path->replaceWith('<span>replaced</span>');
+                    }
+                }
+            });
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())->toBe('<span>replaced</span>');
+        });
+
+        test('appendChild in leave is applied after child traversal', function (): void {
+            $doc = $this->parse('<div>content</div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function leave(NodePath $path): void
+                {
+                    if ($path->isTag('div')) {
+                        $path->appendChild(' tail');
+                    }
+                }
+            });
+
+            $result = $rewriter->rewrite($doc);
+
+            expect($result->render())->toBe('<div>content tail</div>');
         });
     });
 
@@ -297,5 +355,47 @@ describe('Traversal Order', function (): void {
         $result = $rewriter->rewrite($doc);
         expect($result->render())
             ->toBe('<!-- before --><span>replaced</span><!-- after -->');
+    });
+
+    test('insertBefore is preserved when wrapWith is called later', function (): void {
+        $doc = $this->parse('<div>content</div>');
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                if ($path->isTag('div')) {
+                    $path->insertBefore('<!-- before -->');
+                    $path->wrapWith(Builder::element('section'));
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc);
+
+        expect($result->render())
+            ->toBe('<!-- before --><section><div>content</div></section>');
+    });
+
+    test('insertAfter is preserved when unwrap is called later', function (): void {
+        $doc = $this->parse('<wrapper><span>inner</span></wrapper>');
+
+        $rewriter = new Rewriter;
+        $rewriter->addVisitor(new class extends Visitor
+        {
+            public function enter(NodePath $path): void
+            {
+                if ($path->isTag('wrapper')) {
+                    $path->insertAfter('<!-- after -->');
+                    $path->unwrap();
+                }
+            }
+        });
+
+        $result = $rewriter->rewrite($doc);
+
+        expect($result->render())
+            ->toBe('<span>inner</span><!-- after -->');
     });
 });

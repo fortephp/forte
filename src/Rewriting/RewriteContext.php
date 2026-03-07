@@ -24,10 +24,13 @@ class RewriteContext
 
     public function queueRemove(Node $node): void
     {
-        $this->operations[$node->index()] = new Operation(
+        $existing = $this->operations[$node->index()] ?? null;
+        $op = new Operation(
             OperationType::Remove,
             $node
         );
+
+        $this->operations[$node->index()] = $this->preserveSideEffects($op, $existing);
     }
 
     /**
@@ -42,14 +45,7 @@ class RewriteContext
             replacement: $this->normalizeSpecs($replacement)
         );
 
-        // Preserve insertBefore/insertAfter/wrapStack from an existing operation
-        if ($existing !== null) {
-            $op->insertBefore = $existing->insertBefore;
-            $op->insertAfter = $existing->insertAfter;
-            $op->wrapStack = $existing->wrapStack;
-        }
-
-        $this->operations[$node->index()] = $op;
+        $this->operations[$node->index()] = $this->preserveSideEffects($op, $existing);
     }
 
     /**
@@ -90,19 +86,25 @@ class RewriteContext
 
     public function queueWrap(Node $node, NodeBuilder $wrapper): void
     {
-        $this->operations[$node->index()] = new Operation(
+        $existing = $this->operations[$node->index()] ?? null;
+        $op = new Operation(
             OperationType::Wrap,
             $node,
             wrapper: $wrapper
         );
+
+        $this->operations[$node->index()] = $this->preserveSideEffects($op, $existing);
     }
 
     public function queueUnwrap(Node $node): void
     {
-        $this->operations[$node->index()] = new Operation(
+        $existing = $this->operations[$node->index()] ?? null;
+        $op = new Operation(
             OperationType::Unwrap,
             $node
         );
+
+        $this->operations[$node->index()] = $this->preserveSideEffects($op, $existing);
     }
 
     /**
@@ -110,11 +112,14 @@ class RewriteContext
      */
     public function queueReplaceChildren(Node $node, NodeBuilder|array|string $children): void
     {
-        $this->operations[$node->index()] = new Operation(
+        $existing = $this->operations[$node->index()] ?? null;
+        $op = new Operation(
             OperationType::ReplaceChildren,
             $node,
             replacement: $this->normalizeSpecs($children)
         );
+
+        $this->operations[$node->index()] = $this->preserveSideEffects($op, $existing);
     }
 
     /**
@@ -218,6 +223,20 @@ class RewriteContext
         return $this->skipChildren[$node->index()] ?? false;
     }
 
+    /**
+     * Replace skip-children markers with an explicit map.
+     *
+     * @param  array<int, true>  $map
+     */
+    public function replaceSkipChildren(array $map): void
+    {
+        $this->skipChildren = [];
+
+        foreach (array_keys($map) as $idx) {
+            $this->skipChildren[$idx] = true;
+        }
+    }
+
     public function requestStop(): void
     {
         $this->stopRequested = true;
@@ -226,6 +245,11 @@ class RewriteContext
     public function isStopRequested(): bool
     {
         return $this->stopRequested;
+    }
+
+    public function resetStopRequest(): void
+    {
+        $this->stopRequested = false;
     }
 
     /**
@@ -277,5 +301,22 @@ class RewriteContext
             fn ($item) => $item instanceof NodeBuilder ? $item : new RawBuilder((string) $item), // @phpstan-ignore instanceof.alwaysTrue
             $input
         );
+    }
+
+    private function preserveSideEffects(Operation $target, ?Operation $existing): Operation
+    {
+        if ($existing === null) {
+            return $target;
+        }
+
+        $target->insertBefore = $existing->insertBefore;
+        $target->insertAfter = $existing->insertAfter;
+        $target->prependChildren = $existing->prependChildren;
+        $target->appendChildren = $existing->appendChildren;
+        $target->wrapStack = $existing->wrapStack;
+        $target->attributeChanges = $existing->attributeChanges;
+        $target->newTagName = $existing->newTagName;
+
+        return $target;
     }
 }

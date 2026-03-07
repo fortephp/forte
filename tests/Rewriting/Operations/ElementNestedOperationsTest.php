@@ -560,6 +560,28 @@ describe('Element Nested Operations', function (): void {
             expect($rewriter->rewrite($doc)->render())
                 ->toBe('<div><ul><li>first</li><li>second</li></ul></div>');
         });
+
+        it('preserves nested element mutation side effects when replacing children', function (): void {
+            $doc = $this->parse('<div><span class="a">old</span></div>');
+
+            $rewriter = new Rewriter;
+            $rewriter->addVisitor(new class extends Visitor
+            {
+                public function enter(NodePath $path): void
+                {
+                    if ($path->isElement() && $path->isTag('span')) {
+                        $path->setAttribute('id', 'nested');
+                        $path->renameTag('strong');
+                        $path->prependChildren('P');
+                        $path->replaceChildren('R');
+                        $path->appendChild('A');
+                    }
+                }
+            });
+
+            expect($rewriter->rewrite($doc)->render())
+                ->toBe('<div><strong class="a" id="nested">PRA</strong></div>');
+        });
     });
 
     describe('prependChildren()', function (): void {

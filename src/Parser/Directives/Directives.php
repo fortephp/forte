@@ -12,6 +12,8 @@ use Illuminate\View\Compilers\BladeCompiler;
 
 class Directives
 {
+    private static ?self $defaultsTemplate = null;
+
     /**
      * @var array<string, bool>
      */
@@ -37,8 +39,22 @@ class Directives
      */
     private bool $acceptAll = false;
 
+    /**
+     * @var string[]|null
+     */
+    private ?array $conditionTerminatorsCache = null;
+
+    /**
+     * @var string[]|null
+     */
+    private ?array $conditionBranchesCache = null;
+
     public static function withDefaults(): self
     {
+        if (self::$defaultsTemplate !== null) {
+            return clone self::$defaultsTemplate;
+        }
+
         $instance = new self;
         $directivesPath = __DIR__.'/../../../resources/directives';
 
@@ -46,7 +62,9 @@ class Directives
             $instance->loadDirectory($directivesPath);
         }
 
-        return $instance;
+        self::$defaultsTemplate = $instance;
+
+        return clone $instance;
     }
 
     public static function acceptAll(): self
@@ -55,6 +73,13 @@ class Directives
         $instance->acceptAll = true;
 
         return $instance;
+    }
+
+    public function __clone()
+    {
+        foreach ($this->directives as $name => $directive) {
+            $this->directives[$name] = clone $directive;
+        }
     }
 
     /**
@@ -120,6 +145,7 @@ class Directives
         $directive->terminators = [];
 
         $this->directives[$name] = $directive;
+        $this->invalidateDirectiveCaches();
     }
 
     /**
@@ -129,7 +155,7 @@ class Directives
      */
     public function train(array $tokens, string $source): void
     {
-        $directives = [];
+        $directiveNames = [];
 
         foreach ($tokens as $token) {
             if ($token['type'] === TokenType::Directive) {
@@ -138,25 +164,41 @@ class Directives
                 if (str_starts_with($name, '@')) {
                     $name = substr($name, 1);
                 }
-                $directives[$name] = true;
+
+                if ($name !== '') {
+                    $directiveNames[] = $name;
+                }
             }
         }
 
-        $this->trainFromDirectiveNames($directives);
+        $this->trainFromDirectiveNames($directiveNames);
     }
 
     /**
      * Common training logic from directive names.
      *
-     * @param  array<string, mixed>  $directives
+     * @param  array<int, string>  $directiveNames
      */
-    protected function trainFromDirectiveNames(array $directives): void
+    protected function trainFromDirectiveNames(array $directiveNames): void
     {
-        foreach ($directives as $directiveName => $_) {
+        $directiveSet = [];
+
+        foreach ($directiveNames as $directiveName) {
+            if ($directiveName === '') {
+                continue;
+            }
+
+            // Prefix to keep purely numeric directive names as string keys.
+            $directiveSet['#'.$directiveName] = true;
+        }
+
+        foreach (array_keys($directiveSet) as $encodedName) {
+            $directiveName = substr($encodedName, 1);
+
             // Check for possible custom condition.
             $elseName = 'else'.$directiveName;
 
-            if (array_key_exists($elseName, $directives) && ! $this->isCondition($directiveName)) {
+            if (array_key_exists('#'.$elseName, $directiveSet) && ! $this->isCondition($directiveName)) {
                 $this->addConditionDirective($directiveName);
             }
 
@@ -188,7 +230,7 @@ class Directives
 
     protected function resolveBladeConditions(): void
     {
-        if ($this->bladeConditions != null) {
+        if ($this->bladeConditions !== null) {
             return;
         }
 
@@ -217,6 +259,7 @@ class Directives
 
         $this->directives[$directiveName] = $open;
         $this->directives[$terminator] = $close;
+        $this->invalidateDirectiveCaches();
     }
 
     protected function addConditionDirective(string $condition): void
@@ -260,6 +303,7 @@ class Directives
         $this->directives[$elseCondition] = $elseDirective;
         $this->directives[$endCondition] = $endDirective;
         $this->directives[$unlessCondition] = $unlessDirective;
+        $this->invalidateDirectiveCaches();
     }
 
     public function isCondition(string $directive): bool
@@ -326,6 +370,10 @@ class Directives
      */
     public function getConditionTerminators(): array
     {
+        if ($this->conditionTerminatorsCache !== null) {
+            return $this->conditionTerminatorsCache;
+        }
+
         $terminators = [];
 
         foreach ($this->directives as $directive) {
@@ -336,7 +384,7 @@ class Directives
             $terminators[] = StringInterner::lower($directive->name);
         }
 
-        return $terminators;
+        return $this->conditionTerminatorsCache = $terminators;
     }
 
     /**
@@ -348,7 +396,7 @@ class Directives
 
         $directive = $this->directives[$directiveName] ?? null;
 
-        if ($directive == null || ! $directive->isCondition) {
+        if ($directive === null || ! $directive->isCondition) {
             return [];
         }
 
@@ -379,6 +427,10 @@ class Directives
      */
     protected function getAllConditionBranches(): array
     {
+        if ($this->conditionBranchesCache !== null) {
+            return $this->conditionBranchesCache;
+        }
+
         $branches = ['else'];
 
         foreach ($this->directives as $directive) {
@@ -389,7 +441,7 @@ class Directives
             $branches = array_merge($branches, $directive->terminators);
         }
 
-        return $branches;
+        return $this->conditionBranchesCache = $branches;
     }
 
     public function isConditionalBranch(string $directive): bool
@@ -569,6 +621,8 @@ class Directives
         if ($directive->isCondition) {
             $this->conditions[$directiveName] = true;
         }
+
+        $this->invalidateDirectiveCaches();
     }
 
     /**
@@ -586,6 +640,12 @@ class Directives
         }
 
         return $out;
+    }
+
+    private function invalidateDirectiveCaches(): void
+    {
+        $this->conditionTerminatorsCache = null;
+        $this->conditionBranchesCache = null;
     }
 
     public function loadJson(string $contents): void

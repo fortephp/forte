@@ -240,6 +240,34 @@ LABEL)';
         expect($doc->render())->toBe($template);
     });
 
+    test('out-of-scope branch directive preserves trailing text', function (): void {
+        $template = '<div>@if</div}@elseif)';
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+    });
+
+    test('trailing less-than after malformed tag is preserved', function (): void {
+        $template = '<!--[]></<d}a<';
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+    });
+
+    test('orphan verbatim end token before php tag is preserved', function (): void {
+        $template = "@ver\n@endverbatim<?=";
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+    });
+
+    test('nested malformed trailing close sequence is preserved', function (): void {
+        $template = "<!--[]></<d}a<c7QV5_k:tn:_[Hz\tp<</sp\r";
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+    });
+
     test('multiple consecutive opening directives', function (): void {
         $template = '@if($a)@foreach($items as $item)@if($b)nested@endif@endforeach@endif';
         $doc = $this->parse($template);

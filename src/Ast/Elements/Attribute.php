@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Forte\Ast\Elements;
 
+use Forte\Ast\DirectiveBlockNode;
+use Forte\Ast\DirectiveNode;
 use Forte\Ast\Document\Document;
+use Forte\Ast\EchoNode;
 use Forte\Ast\Node;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\NodeKind;
@@ -212,6 +215,10 @@ class Attribute implements JsonSerializable, Stringable
      */
     public function hasComplexName(): bool
     {
+        if ($this->isBladeConstruct) {
+            return false;
+        }
+
         return $this->name()->isComplex();
     }
 
@@ -220,6 +227,10 @@ class Attribute implements JsonSerializable, Stringable
      */
     public function hasComplexValue(): bool
     {
+        if ($this->isBladeConstruct) {
+            return false;
+        }
+
         $valueObj = $this->value();
 
         return $valueObj !== null && $valueObj->isComplex();
@@ -318,6 +329,10 @@ class Attribute implements JsonSerializable, Stringable
      */
     public function isBoolean(): bool
     {
+        if ($this->isBladeConstruct) {
+            return false;
+        }
+
         if ($this->isVariableShorthand()) {
             return false;
         }
@@ -438,6 +453,76 @@ class Attribute implements JsonSerializable, Stringable
     }
 
     /**
+     * Get internal nodes contained by this attribute.
+     *
+     * @return iterable<Node>
+     */
+    public function internalNodes(): iterable
+    {
+        if ($this->isBladeConstruct()) {
+            $blade = $this->getBladeConstruct();
+
+            if ($blade !== null) {
+                yield $blade;
+                yield from $this->descendInternalNode($blade);
+            }
+
+            return;
+        }
+
+        foreach ($this->name()->getParts() as $part) {
+            if ($part instanceof Node) {
+                yield $part;
+            }
+        }
+
+        $value = $this->value();
+        if ($value === null) {
+            return;
+        }
+
+        foreach ($value->getParts() as $part) {
+            if ($part instanceof Node) {
+                yield $part;
+            }
+        }
+    }
+
+    /**
+     * Get internal nodes as an array.
+     *
+     * @return array<Node>
+     */
+    public function getInternalNodes(): array
+    {
+        return iterator_to_array($this->internalNodes());
+    }
+
+    /**
+     * Get all echo nodes found inside this attribute.
+     *
+     * @return iterable<EchoNode>
+     */
+    public function internalEchoes(): iterable
+    {
+        foreach ($this->internalNodes() as $node) {
+            if ($node instanceof EchoNode) {
+                yield $node;
+            }
+        }
+    }
+
+    /**
+     * Get internal echo nodes as an array.
+     *
+     * @return array<EchoNode>
+     */
+    public function getInternalEchoes(): array
+    {
+        return iterator_to_array($this->internalEchoes());
+    }
+
+    /**
      * Get the start offset in the source document.
      */
     public function startOffset(): int
@@ -525,6 +610,55 @@ class Attribute implements JsonSerializable, Stringable
         }
 
         return -1;
+    }
+
+    /**
+     * @return iterable<Node>
+     */
+    private function descendInternalNode(Node $node): iterable
+    {
+        if ($node instanceof DirectiveBlockNode) {
+            $start = $node->startDirective();
+            if ($start !== null) {
+                yield $start;
+                yield from $this->descendInternalNode($start);
+            }
+
+            foreach ($node->getIntermediateDirectives() as $intermediate) {
+                yield $intermediate;
+                yield from $this->descendInternalNode($intermediate);
+            }
+
+            $end = $node->endDirective();
+            if ($end !== null && ($start === null || $end->index() !== $start->index())) {
+                yield $end;
+                yield from $this->descendInternalNode($end);
+            }
+
+            return;
+        }
+
+        if ($node instanceof DirectiveNode) {
+            foreach ($node->children() as $child) {
+                if ($child instanceof Node) {
+                    yield $child;
+                    yield from $this->descendInternalNode($child);
+
+                    continue;
+                }
+
+                if ($child instanceof self) {
+                    yield from $child->internalNodes();
+                }
+            }
+
+            return;
+        }
+
+        foreach ($node->children() as $child) {
+            yield $child;
+            yield from $this->descendInternalNode($child);
+        }
     }
 
     /**

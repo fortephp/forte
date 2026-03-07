@@ -123,4 +123,17 @@ describe('XML Declaration Tokenization', function (): void {
             ->and($result->tokens[0]['type'])->toBe(TokenType::DeclStart)
             ->and($result->tokens[13]['type'])->toBe(TokenType::DeclEnd);
     });
+
+    it('preserves leading text before incomplete XML declaration', function (): void {
+        $source = 'z<?xml';
+        $lexer = new Lexer($source, $this->directives);
+        $result = $lexer->tokenize();
+
+        expect($result->tokens)->toHaveCount(3)
+            ->and($result->tokens[0]['type'])->toBe(TokenType::Text)
+            ->and(substr($source, $result->tokens[0]['start'], $result->tokens[0]['end'] - $result->tokens[0]['start']))->toBe('z')
+            ->and($result->tokens[1]['type'])->toBe(TokenType::DeclStart)
+            ->and(substr($source, $result->tokens[1]['start'], $result->tokens[1]['end'] - $result->tokens[1]['start']))->toBe('<?xml')
+            ->and($result->tokens[2]['type'])->toBe(TokenType::SyntheticClose);
+    });
 });

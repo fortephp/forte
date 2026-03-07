@@ -83,7 +83,7 @@ trait ProcessesElementAutoClosing
             return;
         }
 
-        $currentIdx = end($this->openElements);
+        $currentIdx = $this->openElements[count($this->openElements) - 1];
         if (! $this->isElementNode($currentIdx)) {
             return;
         }
@@ -113,7 +113,7 @@ trait ProcessesElementAutoClosing
 
     protected function closeRemainingElements(): void
     {
-        $totalTokens = count($this->tokens);
+        $totalTokens = $this->tokenTotal;
 
         foreach ($this->openElements as $elementIdx) {
             if ($elementIdx === 0) {

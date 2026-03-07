@@ -37,6 +37,9 @@ class DocumentBuilder
     /** @var array<int, int> */
     private array $indexMap = [];
 
+    /** @var array<int, int> */
+    private array $reverseIndexMap = [];
+
     public function __construct(
         private readonly Document $source
     ) {
@@ -114,6 +117,7 @@ class DocumentBuilder
         $this->linkToParent($newIndex);
 
         $this->indexMap[$node->index()] = $newIndex;
+        $this->reverseIndexMap[$newIndex] = $node->index();
 
         return $newIndex;
     }
@@ -141,36 +145,56 @@ class DocumentBuilder
      */
     public function addSyntheticNode(NodeBuilder $spec): int
     {
-        $newIndex = $this->nodeCount++;
-
-        $this->nodes[$newIndex] = [
-            'kind' => $spec->kind(),
-            'parent' => $this->currentParent(),
-            'firstChild' => self::NONE,
-            'lastChild' => self::NONE,
-            'nextSibling' => self::NONE,
-            'tokenStart' => self::NONE,
-            'tokenCount' => 0,
-            'genericOffset' => 0,
-            'data' => 0,
-        ];
-
-        $content = $spec->toSource();
-
-        if ($spec->needsLeadingSeparator() && $this->previousEndsWithWordChar()) {
-            $content = ' '.$content;
-        }
-
-        $this->syntheticContent[$newIndex] = $content;
-
-        $meta = $this->extractSyntheticMeta($spec);
-        if ($meta !== null) {
-            $this->syntheticMeta[$newIndex] = $meta;
-        }
+        $newIndex = $this->createSyntheticNode(
+            $spec,
+            $this->currentParent(),
+            $spec->needsLeadingSeparator() && $this->previousEndsWithWordChar()
+        );
 
         $this->linkToParent($newIndex);
 
         return $newIndex;
+    }
+
+    /**
+     * Insert synthetic nodes immediately before an existing output node.
+     *
+     * @param  array<NodeBuilder>  $specs
+     */
+    public function insertSyntheticBefore(int $existingNodeIndex, array $specs): void
+    {
+        if ($specs === [] || ! isset($this->nodes[$existingNodeIndex])) {
+            return;
+        }
+
+        $parentIndex = $this->nodes[$existingNodeIndex]['parent'] ?? null;
+
+        if (! is_int($parentIndex)) {
+            return;
+        }
+
+        $previousSibling = $this->findPreviousSibling($parentIndex, $existingNodeIndex);
+        $renderablePrevious = $this->findPreviousRenderableSibling($parentIndex, $existingNodeIndex);
+
+        foreach ($specs as $spec) {
+            $needsSeparator = $spec->needsLeadingSeparator()
+                && $renderablePrevious !== self::NONE
+                && $this->nodeEndsWithWordChar($renderablePrevious);
+
+            $newIndex = $this->createSyntheticNode($spec, $parentIndex, $needsSeparator);
+
+            if ($previousSibling === self::NONE) {
+                $this->nodes[$parentIndex]['firstChild'] = $newIndex;
+            } else {
+                $this->nodes[$previousSibling]['nextSibling'] = $newIndex;
+            }
+
+            $this->nodes[$newIndex]['nextSibling'] = $existingNodeIndex;
+            $previousSibling = $newIndex;
+            if (! $this->isInternalNode($newIndex)) {
+                $renderablePrevious = $newIndex;
+            }
+        }
     }
 
     /**
@@ -350,9 +374,7 @@ class DocumentBuilder
             return false;
         }
 
-        $lastChar = substr($content, -1);
-
-        return preg_match('/\w/', $lastChar) === 1;
+        return $this->endsWithWordChar($content);
     }
 
     private function isInternalNode(int $nodeIndex): bool
@@ -386,6 +408,58 @@ class DocumentBuilder
         return $previous;
     }
 
+    private function findPreviousRenderableSibling(int $parentIndex, int $beforeNodeIndex): int
+    {
+        $candidate = $this->findPreviousSibling($parentIndex, $beforeNodeIndex);
+
+        while ($candidate !== self::NONE && $this->isInternalNode($candidate)) {
+            $candidate = $this->findPreviousSibling($parentIndex, $candidate);
+        }
+
+        return $candidate;
+    }
+
+    private function nodeEndsWithWordChar(int $nodeIndex): bool
+    {
+        $content = $this->getNodeTrailingContent($nodeIndex);
+
+        if ($content === '') {
+            return false;
+        }
+
+        return $this->endsWithWordChar($content);
+    }
+
+    private function createSyntheticNode(NodeBuilder $spec, int $parentIndex, bool $prependSpace): int
+    {
+        $newIndex = $this->nodeCount++;
+
+        $this->nodes[$newIndex] = [
+            'kind' => $spec->kind(),
+            'parent' => $parentIndex,
+            'firstChild' => self::NONE,
+            'lastChild' => self::NONE,
+            'nextSibling' => self::NONE,
+            'tokenStart' => self::NONE,
+            'tokenCount' => 0,
+            'genericOffset' => 0,
+            'data' => 0,
+        ];
+
+        $content = $spec->toSource();
+        if ($prependSpace) {
+            $content = ' '.$content;
+        }
+        $this->syntheticContent[$newIndex] = $content;
+
+        $meta = $this->extractSyntheticMeta($spec);
+        if ($meta !== null) {
+            $this->syntheticMeta[$newIndex] = $meta;
+        }
+
+        return $newIndex;
+    }
+
     private function getNodeTrailingContent(int $nodeIndex): string
     {
         $node = $this->nodes[$nodeIndex];
@@ -402,11 +476,18 @@ class DocumentBuilder
         }
 
         // Copied node - find the source and get its content
-        $sourceIndex = array_search($nodeIndex, $this->indexMap, true);
-        if ($sourceIndex !== false) {
+        $sourceIndex = $this->reverseIndexMap[$nodeIndex] ?? null;
+        if (is_int($sourceIndex)) {
             return $this->source->getNode($sourceIndex)->getDocumentContent();
         }
 
         return '';
+    }
+
+    private function endsWithWordChar(string $content): bool
+    {
+        $lastChar = substr($content, -1);
+
+        return preg_match('/\w/', $lastChar) === 1;
     }
 }

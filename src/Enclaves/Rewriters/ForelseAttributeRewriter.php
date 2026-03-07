@@ -6,6 +6,7 @@ namespace Forte\Enclaves\Rewriters;
 
 use Forte\Ast\Elements\Attribute;
 use Forte\Ast\Elements\ElementNode;
+use Forte\Ast\Node;
 use Forte\Ast\TextNode;
 use Forte\Rewriting\Builders\Builder;
 use Forte\Rewriting\NodePath;
@@ -120,10 +121,18 @@ class ForelseAttributeRewriter extends Visitor implements AttributeDirective
 
         $indexById = [];
         foreach ($siblings as $i => $sibling) {
+            if (! $sibling instanceof Node) {
+                continue;
+            }
+
             $indexById[spl_object_id($sibling)] = $i;
         }
 
         while ($next !== null && $this->isWhitespaceText($next)) {
+            if (! $next instanceof Node) {
+                break;
+            }
+
             $id = spl_object_id($next);
 
             if (! isset($indexById[$id])) {

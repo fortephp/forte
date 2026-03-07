@@ -29,6 +29,7 @@ use Forte\Ast\Node;
 use Forte\Ast\PhpBlockNode;
 use Forte\Ast\PhpTagNode;
 use Forte\Ast\TextNode;
+use Forte\Ast\TraversalOptions;
 use Forte\Components\ComponentManager;
 use Forte\Lexer\Lexer;
 use Forte\Lexer\LexerError;
@@ -314,6 +315,44 @@ class Document implements Countable, IteratorAggregate, Stringable
     }
 
     /**
+     * Get all nodes of a specific type in the document.
+     *
+     * By default this uses normal children traversal only. Pass
+     * `TraversalOptions::deep()` or `true` to include element/component internals.
+     *
+     * @template T of Node
+     *
+     * @param  class-string<T>  $class
+     * @return NodeCollection<int, T>
+     */
+    public function allOfType(string $class, TraversalOptions|bool $options = false): NodeCollection
+    {
+        $options = TraversalOptions::from($options);
+        $results = [];
+
+        foreach ($this->children() as $child) {
+            /** @var T $match */
+            foreach ($child->allOfType($class, $options) as $match) {
+                $results[] = $match;
+            }
+        }
+
+        /** @var NodeCollection<int, T> */
+        return NodeCollection::make($results);
+    }
+
+    /**
+     * Get all echo nodes in the document.
+     *
+     * @return NodeCollection<int, EchoNode>
+     */
+    public function allEchoes(TraversalOptions|bool $options = false): NodeCollection
+    {
+        /** @var NodeCollection<int, EchoNode> */
+        return $this->allOfType(EchoNode::class, $options);
+    }
+
+    /**
      * Get the original source code.
      */
     public function source(): string
@@ -363,9 +402,9 @@ class Document implements Countable, IteratorAggregate, Stringable
      *
      * @param  callable(Node): void  $callback
      */
-    public function walk(callable $callback): self
+    public function walk(callable $callback, TraversalOptions|bool $options = false): self
     {
-        foreach ($this->allDescendants() as $node) {
+        foreach ($this->allOfType(Node::class, $options) as $node) {
             $callback($node);
         }
 

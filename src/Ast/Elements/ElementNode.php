@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Ast\Elements;
 
+use Forte\Ast\EchoNode;
 use Forte\Ast\Elements\Concerns\ManagesElementAttributes;
 use Forte\Ast\Elements\Concerns\ManagesElementClosing;
 use Forte\Ast\Elements\Concerns\ManagesElementGenerics;
@@ -139,6 +140,58 @@ class ElementNode extends Node
     private function findOpeningTagEndPosition(): int
     {
         return $this->document->findOpeningTagEndPosition($this->index);
+    }
+
+    /**
+     * Get internal nodes that are part of the element's tag name and attributes.
+     *
+     * These nodes are intentionally excluded from normal `children()` traversal.
+     *
+     * @return iterable<Node>
+     */
+    public function internalNodes(): iterable
+    {
+        foreach ($this->tagName()->getParts() as $part) {
+            yield $part;
+        }
+
+        foreach ($this->attributes() as $attribute) {
+            yield from $attribute->internalNodes();
+        }
+    }
+
+    /**
+     * Get internal nodes as an array.
+     *
+     * @return array<Node>
+     */
+    public function getInternalNodes(): array
+    {
+        return iterator_to_array($this->internalNodes());
+    }
+
+    /**
+     * Get all echo nodes found in tag-name/attribute internals.
+     *
+     * @return iterable<EchoNode>
+     */
+    public function internalEchoes(): iterable
+    {
+        foreach ($this->internalNodes() as $node) {
+            if ($node instanceof EchoNode) {
+                yield $node;
+            }
+        }
+    }
+
+    /**
+     * Get internal echo nodes as an array.
+     *
+     * @return array<EchoNode>
+     */
+    public function getInternalEchoes(): array
+    {
+        return iterator_to_array($this->internalEchoes());
     }
 
     /**

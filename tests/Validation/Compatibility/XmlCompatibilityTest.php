@@ -450,4 +450,25 @@ XML;
         $doc = $this->parse($template);
         expect($doc->render())->toBe($template);
     });
+
+    it('preserves leading text before incomplete XML declaration', function (): void {
+        $template = 'z<?xml';
+
+        $doc = $this->parse($template);
+        expect($doc->render())->toBe($template);
+    });
+
+    it('preserves trailing text after malformed echo in XML declaration', function (): void {
+        $template = "<?xml{{<?>\t";
+
+        $doc = $this->parse($template);
+        expect($doc->render())->toBe($template);
+    });
+
+    it('preserves orphan XML declaration end tokens in malformed mixed constructs', function (): void {
+        $template = '{{<?xml{{}}?>';
+
+        $doc = $this->parse($template);
+        expect($doc->render())->toBe($template);
+    });
 });

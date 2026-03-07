@@ -35,7 +35,7 @@ trait ManagesTagNameParts
     /**
      * Get parts as an array.
      *
-     * @return array<Node>
+     * @return array<int, Node>
      */
     public function getParts(): array
     {
@@ -57,7 +57,9 @@ trait ManagesTagNameParts
             return true;
         }
 
-        return ! $children[0]->isText();
+        $firstChild = $children[0] ?? null;
+
+        return ! ($firstChild?->isText() ?? true);
     }
 
     /**

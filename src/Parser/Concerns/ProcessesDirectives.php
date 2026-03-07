@@ -70,7 +70,8 @@ trait ProcessesDirectives
             return false;
         }
 
-        foreach (array_reverse($this->openDirectives) as $frame) {
+        for ($i = count($this->openDirectives) - 1; $i >= 0; $i--) {
+            $frame = $this->openDirectives[$i];
             $directive = $this->directives->getDirective($frame['name']);
             if ($directive !== null && ! empty($directive->terminators)) {
                 if (in_array($directiveName, $directive->terminators, true)) {
@@ -138,7 +139,8 @@ trait ProcessesDirectives
             return false;
         }
 
-        foreach (array_reverse($this->openDirectives) as $frame) {
+        for ($i = count($this->openDirectives) - 1; $i >= 0; $i--) {
+            $frame = $this->openDirectives[$i];
             $directive = $this->directives->getDirective($frame['name']);
             if ($directive !== null && $directive->hasConditionLikeBranches) {
                 if (in_array($directiveName, $directive->conditionLikeBranches, true)) {

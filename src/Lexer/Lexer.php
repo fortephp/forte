@@ -336,11 +336,7 @@ class Lexer
             return false;
         }
 
-        $substr = substr($this->source, $pos, $len);
-
-        return $caseInsensitive
-            ? strcasecmp($substr, $needle) === 0
-            : $substr === $needle;
+        return substr_compare($this->source, $needle, $pos, $len, $caseInsensitive) === 0;
     }
 
     /**

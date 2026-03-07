@@ -310,7 +310,8 @@ class ScanPrimitives
 
                 return;
             } elseif ($byte === '\\') {
-                $pos += 2;
+                // A dangling escape at EOF should clamp to len, never len+1.
+                $pos = min($len, $pos + 2);
             } elseif ($byte === '$' && $pos + 1 < $len && $source[$pos + 1] === '{') {
                 // Template expression ${...}
                 $pos += 2; // Skip ${

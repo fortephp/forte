@@ -252,7 +252,8 @@ class Attributes extends Collection
     {
         $this->ensureLoaded();
 
-        return $this->filter(fn (Attribute $attr) => $attr->hasComplexName() || $attr->hasComplexValue()
+        return $this->filter(fn (Attribute $attr) => ! $attr->isBladeConstruct() &&
+            ($attr->hasComplexName() || $attr->hasComplexValue())
         );
     }
 
@@ -287,8 +288,7 @@ class Attributes extends Collection
     {
         $this->ensureLoaded();
 
-        return $this->filter(fn (Attribute $attr) => preg_match($pattern, $attr->nameText()) === 1
-        );
+        return $this->filter(fn (Attribute $attr) => preg_match($pattern, $attr->nameText()) === 1);
     }
 
     /**
@@ -371,6 +371,37 @@ class Attributes extends Collection
 
         /** @var NodeCollection<int, Node> */
         return NodeCollection::make($items);
+    }
+
+    /**
+     * Extract internal attribute nodes (compound names/values and blade-attribute internals).
+     *
+     * @return NodeCollection<int, Node>
+     */
+    public function internalNodes(): NodeCollection
+    {
+        $this->ensureLoaded();
+
+        $items = [];
+        foreach ($this->items as $attribute) {
+            foreach ($attribute->internalNodes() as $node) {
+                $items[] = $node;
+            }
+        }
+
+        /** @var NodeCollection<int, Node> */
+        return NodeCollection::make($items);
+    }
+
+    /**
+     * Extract all echo nodes found in attribute internals.
+     *
+     * @return NodeCollection<int, EchoNode>
+     */
+    public function internalEchoes(): NodeCollection
+    {
+        /** @var NodeCollection<int, EchoNode> */
+        return $this->internalNodes()->ofType(EchoNode::class);
     }
 
     /**

@@ -172,4 +172,26 @@ describe('Attribute Methods', function (): void {
                 ->and($bound->isVariableShorthand())->toBeTrue();
         });
     });
+
+    describe('standalone blade attribute behavior', function (): void {
+        it('does not treat standalone blade constructs as boolean attributes', function (): void {
+            $el = $this->parseElement('<div {{ $attrs }} disabled></div>');
+            $attrs = $el->attributes()->all();
+
+            expect($attrs)->toHaveCount(2)
+                ->and($attrs[0]->isBladeConstruct())->toBeTrue()
+                ->and($attrs[0]->isBoolean())->toBeFalse()
+                ->and($attrs[1]->nameText())->toBe('disabled')
+                ->and($attrs[1]->isBoolean())->toBeTrue();
+        });
+
+        it('supports complex() without throwing when standalone blade constructs are present', function (): void {
+            $el = $this->parseElement('<div {{ $attrs }} class="foo-{{ $bar }}" id="x"></div>');
+            $complex = $el->attributes()->complex();
+
+            expect($complex)->toHaveCount(1)
+                ->and($complex->first()->nameText())->toBe('class')
+                ->and($complex->first()->hasComplexValue())->toBeTrue();
+        });
+    });
 });
