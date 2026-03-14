@@ -6,6 +6,8 @@ use Forte\Ast\DirectiveBlockNode;
 use Forte\Ast\DirectiveNode;
 use Forte\Ast\Elements\CommentNode;
 use Forte\Ast\TextNode;
+use Forte\Lexer\Lexer;
+use Forte\Parser\Directives\Directives;
 use Forte\Parser\ParserOptions;
 
 describe('Directive Discovery', function (): void {
@@ -256,5 +258,223 @@ BLADE;
             ->and($blockNodes[0]->asDirective()->name())->toBe('IF')
             ->and($blockNodes[1]->asDirective()->name())->toBe('ENDIF')
             ->and($doc->render())->toBe($template);
+    });
+
+    test('training custom conditions does not mutate the explicit registry', function (): void {
+        $template = <<<'BLADE'
+@randomCondition('one')
+    <!-- Branch One -->
+@elseRandomCondition('two')
+    <!-- Branch Two -->
+@else
+    <!-- Branch Three -->
+@endrandomCondition
+
+@unlessrandomCondition('one')
+    <!-- Branch Four -->
+@endrandomCondition
+BLADE;
+
+        $directives = Directives::withDefaults();
+        $directives->setAcceptAll(true);
+
+        $lexer = new Lexer($template, $directives);
+        $tokens = $lexer->tokenize()->tokens;
+        $directives->train($tokens, $template);
+
+        expect($directives->isCondition('randomcondition'))->toBeFalse()
+            ->and($directives->isPaired('randomcondition'))->toBeFalse()
+            ->and($directives->isCondition('unlessrandomcondition'))->toBeFalse()
+            ->and($directives->isPaired('unlessrandomcondition'))->toBeFalse();
+    });
+
+    test('standalone @endwidget does not invent @widget', function (): void {
+        $doc = $this->parse('@endwidget', ParserOptions::make()->acceptAllDirectives());
+        $nodes = $doc->getChildren();
+
+        expect($nodes)->toHaveCount(1)
+            ->and($nodes[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($nodes[0]->asDirective()->nameText())->toBe('endwidget')
+            ->and($doc->getBlockDirectives()->all())->toHaveCount(0);
+    });
+
+    test('standalone @elsewidget does not invent @widget', function (): void {
+        $doc = $this->parse('@elsewidget', ParserOptions::make()->acceptAllDirectives());
+        $nodes = $doc->getChildren();
+
+        expect($nodes)->toHaveCount(1)
+            ->and($nodes[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($nodes[0]->asDirective()->nameText())->toBe('elsewidget')
+            ->and($doc->getBlockDirectives()->all())->toHaveCount(0);
+    });
+
+    test('custom exact-name branch evidence allows generic condition closers', function (): void {
+        $template = "@disk('local') Local storage @elsedisk Global storage @endif";
+
+        $doc = $this->parse($template, ParserOptions::make()->acceptAllDirectives());
+        $nodes = $doc->getChildren();
+
+        expect($nodes)->toHaveCount(1)
+            ->and($nodes[0])->toBeInstanceOf(DirectiveBlockNode::class);
+
+        $blockNodes = collect($nodes[0]->getChildren())
+            ->filter(static fn ($node) => $node instanceof DirectiveNode)
+            ->values()
+            ->all();
+
+        expect($blockNodes)->toHaveCount(3)
+            ->and($blockNodes[0]->asDirective()->nameText())->toBe('disk')
+            ->and($blockNodes[1]->asDirective()->nameText())->toBe('elsedisk')
+            ->and($blockNodes[2]->asDirective()->nameText())->toBe('endif')
+            ->and($doc->render())->toBe($template);
+    });
+
+    test('custom unless-family openers are discovered with the shared @endfoo closer', function (): void {
+        $template = "@unlessdisk('local') Not local @enddisk";
+
+        $doc = $this->parse($template, ParserOptions::make()->acceptAllDirectives());
+        $nodes = $doc->getChildren();
+
+        expect($nodes)->toHaveCount(1)
+            ->and($nodes[0])->toBeInstanceOf(DirectiveBlockNode::class);
+
+        $blockNodes = collect($nodes[0]->getChildren())
+            ->filter(static fn ($node) => $node instanceof DirectiveNode)
+            ->values()
+            ->all();
+
+        expect($blockNodes)->toHaveCount(2)
+            ->and($blockNodes[0]->asDirective()->nameText())->toBe('unlessdisk')
+            ->and($blockNodes[1]->asDirective()->nameText())->toBe('enddisk')
+            ->and($doc->render())->toBe($template);
+
+        $directives = Directives::withDefaults();
+        $directives->setAcceptAll(true);
+
+        $lexer = new Lexer($template, $directives);
+        $tokens = $lexer->tokenize()->tokens;
+        $directives->train($tokens, $template);
+
+        expect($directives->isCondition('disk'))->toBeFalse()
+            ->and($directives->isCondition('unlessdisk'))->toBeFalse()
+            ->and($directives->isPaired('unlessdisk'))->toBeFalse();
+    });
+
+    test('unknown pairs without exact-name branch evidence do not gain generic condition branches', function (): void {
+        $template = "@disk('s3') Content @else Fallback @enddisk";
+
+        $doc = $this->parse($template, ParserOptions::make()->acceptAllDirectives());
+        $blocks = $doc->getBlockDirectives()->values()->all();
+
+        expect($blocks)->toHaveCount(1);
+
+        $blockNodes = collect($blocks[0]->getChildren())
+            ->filter(static fn ($node) => $node instanceof DirectiveNode)
+            ->values()
+            ->all();
+
+        expect($blockNodes)->toHaveCount(2)
+            ->and($blockNodes[0]->asDirective()->nameText())->toBe('disk')
+            ->and($blockNodes[1]->asDirective()->nameText())->toBe('enddisk');
+    });
+
+    test('registered directive discovery does not invent @sub when @endsub already belongs to @hassub', function (): void {
+        $template = <<<'BLADE'
+@hasfield('list')
+  <ul>
+    @fields('list')
+      <li>@sub('item')</li>
+    @endfields
+  </ul>
+@endfield
+
+@hasoption('facebook_url')
+  Find us on <a href="@option('facebook_url')" target="_blank">Facebook</a>
+@endoption
+
+@hassub('icon')
+  <i class="fas fa-@sub('icon')"></i>
+@endsub
+BLADE;
+
+        $directives = Directives::withDefaults();
+        $directives->loadJson(<<<'JSON'
+[
+  {"name":"hasfield","args":true,"structure":{"role":"open","terminators":"endfield"}},
+  {"name":"endfield","args":false,"structure":{"role":"close"}},
+  {"name":"fields","args":true,"structure":{"role":"open","terminators":"endfields"}},
+  {"name":"endfields","args":false,"structure":{"role":"close"}},
+  {"name":"hasoption","args":true,"structure":{"role":"open","terminators":"endoption"}},
+  {"name":"endoption","args":false,"structure":{"role":"close"}},
+  {"name":"hassub","args":true,"structure":{"role":"open","terminators":"endsub"}},
+  {"name":"endsub","args":false,"structure":{"role":"close"}}
+]
+JSON);
+
+        $doc = $this->parse($template, ParserOptions::make()->directives($directives)->acceptAllDirectives());
+        $blocks = $doc->getBlockDirectives()->values()->all();
+        $blockNames = collect($blocks)
+            ->map(static fn (DirectiveBlockNode $node): string => $node->nameText())
+            ->all();
+
+        expect($directives->isPaired('sub'))->toBeFalse()
+            ->and($blockNames)->toBe(['hasfield', 'fields', 'hasoption', 'hassub'])
+            ->and($doc->findBlockDirectivesByName('sub')->all())->toHaveCount(0)
+            ->and($doc->render())->toBe($template);
+    });
+
+    test('accept-all discovery does not invent @sub, @option, or @field when matching @has* siblings are present', function (): void {
+        $template = <<<'BLADE'
+@hasfield('list')
+  <ul>
+    @fields('list')
+      <li>@sub('item')</li>
+    @endfields
+  </ul>
+@endfield
+
+@hasoption('facebook_url')
+  Find us on <a href="@option('facebook_url')" target="_blank">Facebook</a>
+@endoption
+
+@hassub('icon')
+  <i class="fas fa-@sub('icon')"></i>
+@endsub
+BLADE;
+
+        $doc = $this->parse($template, ParserOptions::make()->acceptAllDirectives());
+        $blocks = $doc->getBlockDirectives()->values()->all();
+        $blockNames = collect($blocks)
+            ->map(static fn (DirectiveBlockNode $node): string => $node->nameText())
+            ->all();
+
+        expect($blockNames)->toBe(['fields'])
+            ->and($doc->findBlockDirectivesByName('field')->all())->toHaveCount(0)
+            ->and($doc->findBlockDirectivesByName('option')->all())->toHaveCount(0)
+            ->and($doc->findBlockDirectivesByName('sub')->all())->toHaveCount(0)
+            ->and($doc->render())->toBe($template);
+    });
+
+    test('accept-all discovery does not let @elsesection overwrite registered @section semantics', function (): void {
+        $template = "@section('sidebar') Content @elsesection @endsection";
+
+        $doc = $this->parse($template, ParserOptions::make()->acceptAllDirectives());
+        $blocks = $doc->getBlockDirectives()->values()->all();
+
+        expect($blocks)->toHaveCount(1);
+
+        $blockNodes = collect($blocks[0]->getChildren())
+            ->filter(static fn ($node) => $node instanceof DirectiveNode)
+            ->values()
+            ->all();
+
+        expect($blockNodes)->toHaveCount(2)
+            ->and($blockNodes[0]->asDirective()->nameText())->toBe('section')
+            ->and($blockNodes[1]->asDirective()->nameText())->toBe('endsection');
+
+        $strayElseSection = $doc->findDirectivesByName('elsesection')->values()->all();
+
+        expect($strayElseSection)->toHaveCount(1)
+            ->and($strayElseSection[0]->getParent())->toBeInstanceOf(DirectiveNode::class);
     });
 });

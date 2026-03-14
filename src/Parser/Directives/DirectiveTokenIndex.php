@@ -15,6 +15,21 @@ class DirectiveTokenIndex
     private array $byName = [];
 
     /**
+     * @var int[]
+     */
+    private array $allPositions = [];
+
+    /**
+     * @var string[]
+     */
+    private array $allNames = [];
+
+    /**
+     * @var array<string, array<string, true>>
+     */
+    private array $nameSetCache = [];
+
+    /**
      * @param  array<int, array{type: int, start: int, end: int}>  $tokens
      * @param  string  $source  The source code for extracting directive names
      */
@@ -36,6 +51,8 @@ class DirectiveTokenIndex
             }
 
             $name = $this->extractName($token, $source);
+            $this->allPositions[] = $idx;
+            $this->allNames[] = $name;
             $this->byName[$name][] = $idx;
         }
     }
@@ -100,6 +117,28 @@ class DirectiveTokenIndex
         return $this->findFirstIndexGte($positions, $minIdx) !== null;
     }
 
+    public function existsBetween(string $name, int $minIdx, int $maxIdxExclusive): bool
+    {
+        $name = self::normalize($name);
+
+        if (! isset($this->byName[$name])) {
+            return false;
+        }
+
+        $positions = $this->byName[$name];
+
+        if ($positions === [] || $positions[array_key_last($positions)] < $minIdx) {
+            return false;
+        }
+
+        $firstIdx = $this->findFirstIndexGte($positions, $minIdx);
+        if ($firstIdx === null) {
+            return false;
+        }
+
+        return $positions[$firstIdx] < $maxIdxExclusive;
+    }
+
     /**
      * Find a matching terminator using the index with proper nesting support.
      *
@@ -110,43 +149,60 @@ class DirectiveTokenIndex
     public function findMatchingTerminator(
         string $directiveName,
         int $startIdx,
-        array $terminators
+        array $terminators,
+        ?int $maxIdxExclusive = null,
+        int $initialNesting = 0
     ): ?int {
-        $directiveName = self::normalize($directiveName);
+        return $this->findMatchingTerminatorForOpeners(
+            [$directiveName],
+            $startIdx,
+            $terminators,
+            $maxIdxExclusive,
+            $initialNesting
+        );
+    }
 
-        $openerPositions = $this->getPositionsAfter($directiveName, $startIdx);
+    /**
+     * Find a matching terminator for one or more opener names.
+     *
+     * @param  string[]  $openerNames
+     * @param  string[]  $terminators
+     */
+    public function findMatchingTerminatorForOpeners(
+        array $openerNames,
+        int $startIdx,
+        array $terminators,
+        ?int $maxIdxExclusive = null,
+        int $initialNesting = 0
+    ): ?int {
+        $openerSet = $this->getNameSet($openerNames);
 
-        $terminatorPositions = [];
-        foreach ($terminators as $term) {
-            foreach ($this->getPositionsAfter($term, $startIdx) as $pos) {
-                $terminatorPositions[$pos] = true;
-            }
-        }
-
-        if ($terminatorPositions === []) {
+        $firstIdx = $this->findFirstIndexGte($this->allPositions, $startIdx);
+        if ($firstIdx === null) {
             return null;
         }
 
-        $events = [];
-        foreach ($openerPositions as $pos) {
-            $events[] = ['pos' => $pos, 'delta' => 1];
-        }
-        foreach (array_keys($terminatorPositions) as $pos) {
-            $events[] = ['pos' => $pos, 'delta' => -1];
-        }
+        $terminatorSet = $this->getNameSet($terminators);
+        $nesting = $initialNesting;
 
-        usort($events, static fn ($a, $b) => $a['pos'] <=> $b['pos']);
+        for ($i = $firstIdx; $i < count($this->allPositions); $i++) {
+            if ($maxIdxExclusive !== null && $this->allPositions[$i] >= $maxIdxExclusive) {
+                return null;
+            }
 
-        $nesting = 0;
-        foreach ($events as $event) {
-            if ($event['delta'] === 1) {
+            $name = $this->allNames[$i];
+            if (isset($openerSet[$name])) {
                 $nesting++;
 
                 continue;
             }
 
+            if (! isset($terminatorSet[$name])) {
+                continue;
+            }
+
             if ($nesting === 0) {
-                return $event['pos'];
+                return $this->allPositions[$i];
             }
 
             $nesting--;
@@ -165,9 +221,190 @@ class DirectiveTokenIndex
     public function hasTerminator(
         string $directiveName,
         int $startIdx,
-        array $terminators
+        array $terminators,
+        ?int $maxIdxExclusive = null
     ): bool {
-        return $this->findMatchingTerminator($directiveName, $startIdx, $terminators) !== null;
+        return $this->findMatchingTerminator($directiveName, $startIdx, $terminators, $maxIdxExclusive) !== null;
+    }
+
+    /**
+     * Find the first zero-depth branch or terminator boundary for a directive.
+     *
+     * @param  string[]  $terminatorNames
+     * @param  string[]  $branchNames
+     */
+    public function findMatchingBoundary(
+        string $directiveName,
+        int $startIdx,
+        array $terminatorNames,
+        array $branchNames = [],
+        ?int $maxIdxExclusive = null,
+        int $initialNesting = 0
+    ): ?int {
+        return $this->findMatchingBoundaryForOpeners(
+            [$directiveName],
+            $startIdx,
+            $terminatorNames,
+            $branchNames,
+            $maxIdxExclusive,
+            $initialNesting
+        );
+    }
+
+    /**
+     * Find the first zero-depth branch or terminator boundary for opener families.
+     *
+     * @param  string[]  $openerNames
+     * @param  string[]  $terminatorNames
+     * @param  string[]  $branchNames
+     */
+    public function findMatchingBoundaryForOpeners(
+        array $openerNames,
+        int $startIdx,
+        array $terminatorNames,
+        array $branchNames = [],
+        ?int $maxIdxExclusive = null,
+        int $initialNesting = 0
+    ): ?int {
+        $openerSet = $this->getNameSet($openerNames);
+
+        $firstIdx = $this->findFirstIndexGte($this->allPositions, $startIdx);
+        if ($firstIdx === null) {
+            return null;
+        }
+
+        $terminatorSet = $this->getNameSet($terminatorNames);
+        $branchSet = $this->getNameSet($branchNames);
+        $nesting = $initialNesting;
+
+        for ($i = $firstIdx; $i < count($this->allPositions); $i++) {
+            if ($maxIdxExclusive !== null && $this->allPositions[$i] >= $maxIdxExclusive) {
+                return null;
+            }
+
+            $name = $this->allNames[$i];
+            if (isset($openerSet[$name])) {
+                $nesting++;
+
+                continue;
+            }
+
+            if (isset($branchSet[$name])) {
+                if ($nesting === 0) {
+                    return $this->allPositions[$i];
+                }
+
+                continue;
+            }
+
+            if (! isset($terminatorSet[$name])) {
+                continue;
+            }
+
+            if ($nesting === 0) {
+                return $this->allPositions[$i];
+            }
+
+            $nesting--;
+        }
+
+        return null;
+    }
+
+    /**
+     * Analyze an unknown directive for its first reachable branch and closer.
+     *
+     * @param  string[]  $terminatorNames
+     * @param  string[]  $branchNames
+     * @return array{terminatorIdx: int|null, terminatorName: string|null, branchIdx: int|null}
+     */
+    public function analyzeUnknownDirective(
+        string $directiveName,
+        int $startIdx,
+        array $terminatorNames,
+        array $branchNames = [],
+        ?int $maxIdxExclusive = null
+    ): array {
+        return $this->analyzeUnknownDirectiveFamily(
+            [$directiveName],
+            $startIdx,
+            $terminatorNames,
+            $branchNames,
+            $maxIdxExclusive
+        );
+    }
+
+    /**
+     * Analyze an unknown directive family for its first reachable branch and closer.
+     *
+     * @param  string[]  $openerNames
+     * @param  string[]  $terminatorNames
+     * @param  string[]  $branchNames
+     * @return array{terminatorIdx: int|null, terminatorName: string|null, branchIdx: int|null}
+     */
+    public function analyzeUnknownDirectiveFamily(
+        array $openerNames,
+        int $startIdx,
+        array $terminatorNames,
+        array $branchNames = [],
+        ?int $maxIdxExclusive = null
+    ): array {
+        $openerSet = $this->getNameSet($openerNames);
+
+        $firstIdx = $this->findFirstIndexGte($this->allPositions, $startIdx);
+        if ($firstIdx === null) {
+            return [
+                'terminatorIdx' => null,
+                'terminatorName' => null,
+                'branchIdx' => null,
+            ];
+        }
+
+        $terminatorSet = $this->getNameSet($terminatorNames);
+        $branchSet = $this->getNameSet($branchNames);
+        $nesting = 0;
+        $branchIdx = null;
+
+        for ($i = $firstIdx; $i < count($this->allPositions); $i++) {
+            if ($maxIdxExclusive !== null && $this->allPositions[$i] >= $maxIdxExclusive) {
+                return [
+                    'terminatorIdx' => null,
+                    'terminatorName' => null,
+                    'branchIdx' => null,
+                ];
+            }
+
+            $name = $this->allNames[$i];
+            if (isset($openerSet[$name])) {
+                $nesting++;
+
+                continue;
+            }
+
+            if (isset($terminatorSet[$name])) {
+                if ($nesting === 0) {
+                    return [
+                        'terminatorIdx' => $this->allPositions[$i],
+                        'terminatorName' => $name,
+                        'branchIdx' => $branchIdx,
+                    ];
+                }
+
+                $nesting--;
+
+                continue;
+            }
+
+            if ($branchIdx === null && $nesting === 0 && isset($branchSet[$name])) {
+                $branchIdx = $this->allPositions[$i];
+            }
+        }
+
+        return [
+            'terminatorIdx' => null,
+            'terminatorName' => null,
+            'branchIdx' => null,
+        ];
     }
 
     /**
@@ -206,6 +443,25 @@ class DirectiveTokenIndex
     private function isDirectiveToken(array $token): bool
     {
         return $token['type'] === TokenType::Directive;
+    }
+
+    /**
+     * @param  string[]  $names
+     * @return array<string, true>
+     */
+    private function getNameSet(array $names): array
+    {
+        $key = self::normalize(implode('|', $names));
+        if (isset($this->nameSetCache[$key])) {
+            return $this->nameSetCache[$key];
+        }
+
+        $set = [];
+        foreach ($names as $name) {
+            $set[self::normalize($name)] = true;
+        }
+
+        return $this->nameSetCache[$key] = $set;
     }
 
     private static function normalize(string $name): string
