@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Forte\Parser\Directives;
 
 use DirectoryIterator;
-use Forte\Lexer\Tokens;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Support\StringInterner;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -33,6 +32,21 @@ class Directives
      * @var string[]|null
      */
     protected ?array $bladeConditions = null;
+
+    /**
+     * @var array<string, bool>
+     */
+    protected array $seenDirectives = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    protected array $advisoryPairs = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    protected array $advisoryConditions = [];
 
     /**
      * If true, accept all @word patterns as directives.
@@ -148,6 +162,26 @@ class Directives
         $this->invalidateDirectiveCaches();
     }
 
+    public function hasExplicitDirective(string $name): bool
+    {
+        return array_key_exists(StringInterner::lower($name), $this->directives);
+    }
+
+    public function hasSeenDirective(string $name): bool
+    {
+        return array_key_exists(StringInterner::lower($name), $this->seenDirectives);
+    }
+
+    public function hasAdvisoryPair(string $name): bool
+    {
+        return array_key_exists(StringInterner::lower($name), $this->advisoryPairs);
+    }
+
+    public function hasAdvisoryCondition(string $name): bool
+    {
+        return array_key_exists(StringInterner::lower($name), $this->advisoryConditions);
+    }
+
     /**
      * Train from new array-based tokens with source string.
      *
@@ -182,11 +216,17 @@ class Directives
     protected function trainFromDirectiveNames(array $directiveNames): void
     {
         $directiveSet = [];
+        $this->seenDirectives = [];
+        $this->advisoryPairs = [];
+        $this->advisoryConditions = [];
 
         foreach ($directiveNames as $directiveName) {
             if ($directiveName === '') {
                 continue;
             }
+
+            $directiveName = StringInterner::lower($directiveName);
+            $this->seenDirectives[$directiveName] = true;
 
             // Prefix to keep purely numeric directive names as string keys.
             $directiveSet['#'.$directiveName] = true;
@@ -195,21 +235,19 @@ class Directives
         foreach (array_keys($directiveSet) as $encodedName) {
             $directiveName = substr($encodedName, 1);
 
-            // Check for possible custom condition.
-            $elseName = 'else'.$directiveName;
-
-            if (array_key_exists('#'.$elseName, $directiveSet) && ! $this->isCondition($directiveName)) {
-                $this->addConditionDirective($directiveName);
+            if (array_key_exists($directiveName, $this->directives)) {
+                continue;
             }
 
-            if (str_starts_with($directiveName, 'end') && strlen($directiveName) > 3) {
-                $openingCandidate = StringInterner::lower(substr($directiveName, 3));
+            $endName = 'end'.$directiveName;
+            $elseName = 'else'.$directiveName;
 
-                if (array_key_exists($openingCandidate, $this->directives)) {
-                    continue;
-                }
+            if (array_key_exists('#'.$endName, $directiveSet)) {
+                $this->advisoryPairs[$directiveName] = true;
+            }
 
-                $this->addPairedDirective($openingCandidate, $directiveName);
+            if (array_key_exists('#'.$elseName, $directiveSet)) {
+                $this->advisoryConditions[$directiveName] = true;
             }
         }
     }
@@ -239,27 +277,6 @@ class Directives
         foreach ($this->bladeConditions as $condition) {
             $this->addConditionDirective($condition);
         }
-    }
-
-    protected function addPairedDirective(string $directiveName, string $terminator): void
-    {
-        $open = new DiscoveredDirective;
-        $open->name = $directiveName;
-        $open->args = ArgumentRequirement::Optional;
-        $open->role = StructureRole::Opening;
-        $open->isCondition = false;
-        $open->terminators = [$terminator];
-        $open->terminator = $terminator;
-
-        $close = new DiscoveredDirective;
-        $close->name = $terminator;
-        $close->args = ArgumentRequirement::NotAllowed;
-        $close->role = StructureRole::Closing;
-        $close->isCondition = false;
-
-        $this->directives[$directiveName] = $open;
-        $this->directives[$terminator] = $close;
-        $this->invalidateDirectiveCaches();
     }
 
     protected function addConditionDirective(string $condition): void
@@ -321,7 +338,9 @@ class Directives
 
         $instance = $this->directives[$directive];
 
-        return count($instance->terminators) === 1 && $instance->terminator !== null;
+        return $instance->role === StructureRole::Opening
+            && count($instance->terminators) === 1
+            && $instance->terminator !== null;
     }
 
     public function isFinalTerminator(string $directive): bool

@@ -24,8 +24,10 @@ trait ProcessesElementAttributes
         // Push element to stack so directive children are correctly parented
         $this->openElements[] = $elementIdx;
         [$savedOpenDirectives, $savedOpenConditions] = [$this->openDirectives, $this->openConditions];
+        $savedAttributeRegionEnd = $this->attributeRegionEnd;
         $this->openDirectives = [];
         $this->openConditions = [];
+        $this->attributeRegionEnd = $attrEnd;
 
         try {
             while ($this->pos < $attrEnd) {
@@ -81,6 +83,7 @@ trait ProcessesElementAttributes
         } finally {
             $this->openDirectives = $savedOpenDirectives;
             $this->openConditions = $savedOpenConditions;
+            $this->attributeRegionEnd = $savedAttributeRegionEnd;
             array_pop($this->openElements);
         }
     }

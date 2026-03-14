@@ -49,7 +49,7 @@ class TreeBuilder
     /** @var array<int, int> */
     private array $openElements = [];
 
-    /** @var array<int, array{blockIdx: int, startDirectiveIdx: int, name: string, elementStackBase: int}> */
+    /** @var array<int, array{blockIdx: int, startDirectiveIdx: int, name: string, elementStackBase: int, terminators: string[], branches: string[], openers: string[]}> */
     private array $openDirectives = [];
 
     /** @var array<int, array{blockIdx: int, currentBranchIdx: int, name: string, elementStackBase: int}> */
@@ -81,6 +81,11 @@ class TreeBuilder
     private array $nodeMetadata = [];
 
     private ?DirectiveTokenIndex $directiveIndex = null;
+
+    private ?int $attributeRegionEnd = null;
+
+    /** @var array<string, array{baseName: string, elseName: string, endName: string, openers: string[], hasAdvisoryPair: bool, hasAdvisoryCondition: bool}|null> */
+    private array $discoveredDirectiveFamilyCache = [];
 
     private int $tokenTotal;
 
