@@ -548,6 +548,9 @@ trait ProcessesDirectives
             return;
         }
 
+        $targetDepth = $this->openDirectives[$matchedIdx]['elementStackBase'] + 1;
+        $this->closeUnmatchedStructuresAtDepth($targetDepth, $startPos);
+
         $frame = $this->openDirectives[$matchedIdx];
         $blockIdx = $frame['blockIdx'];
 
@@ -595,36 +598,155 @@ trait ProcessesDirectives
             return;
         }
 
-        for ($i = count($this->openDirectives) - 1; $i >= $matchedIdx; $i--) {
+        $targetDepth = $this->openDirectives[$matchedIdx]['elementStackBase'] + 2;
+        $this->closeUnmatchedStructuresAtDepth($targetDepth, $startPos);
+
+        while (count($this->openDirectives) - 1 > $matchedIdx) {
             $frame = array_pop($this->openDirectives);
             if ($frame === null) {
                 continue;
             }
 
-            $blockIdx = $frame['blockIdx'];
-
-            $this->popElementsToDepth($frame['elementStackBase'] + 2);
-            $this->popIfTop($frame['startDirectiveIdx']);
-
-            $endDirectiveNode = $this->createNode(
-                kind: NodeKind::Directive,
-                parent: $blockIdx,
-                tokenStart: $startPos,
-                tokenCount: $tokenCount
-            );
-            $endDirectiveNode['name'] = $directiveName;
-            $endDirectiveNode['args'] = $argsContent;
-            $endDirectiveNode['role'] = StructureRole::Closing;
-
-            $this->addChild($endDirectiveNode);
-
-            $this->popIfTop($blockIdx);
-
-            $endPos = $startPos + $tokenCount;
-            $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->closeUnmatchedDirectiveFrame($frame, $startPos);
         }
 
+        $frame = array_pop($this->openDirectives);
+        if ($frame === null) {
+            $this->pos += $tokenCount;
+
+            return;
+        }
+
+        $blockIdx = $frame['blockIdx'];
+
+        $this->popElementsToDepth($frame['elementStackBase'] + 2);
+        $this->popIfTop($frame['startDirectiveIdx']);
+
+        $endDirectiveNode = $this->createNode(
+            kind: NodeKind::Directive,
+            parent: $blockIdx,
+            tokenStart: $startPos,
+            tokenCount: $tokenCount
+        );
+        $endDirectiveNode['name'] = $directiveName;
+        $endDirectiveNode['args'] = $argsContent;
+        $endDirectiveNode['role'] = StructureRole::Closing;
+
+        $this->addChild($endDirectiveNode);
+
+        $this->popIfTop($blockIdx);
+
+        $endPos = $startPos + $tokenCount;
+        $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+
         $this->pos += $tokenCount;
+    }
+
+    /**
+     * @param  array{blockIdx: int, startDirectiveIdx: int, name: string, elementStackBase: int, terminators: string[], branches: string[], openers: string[]}  $frame
+     */
+    protected function closeUnmatchedDirectiveFrame(array $frame, int $endPos): void
+    {
+        $blockIdx = $frame['blockIdx'];
+
+        $this->popElementsToDepth($frame['elementStackBase'] + 2);
+        $this->popIfTop($frame['startDirectiveIdx']);
+        $this->popIfTop($blockIdx);
+
+        $this->nodes[$blockIdx]['tokenCount'] = max(
+            $this->nodes[$blockIdx]['tokenCount'],
+            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        );
+    }
+
+    protected function closeUnmatchedStructuresAtDepth(int $targetDepth, int $endPos): void
+    {
+        while (true) {
+            $candidateKind = null;
+            $candidateBase = -1;
+            $candidateStart = -1;
+
+            $consider = static function (string $kind, int $base, int $start) use (
+                $targetDepth,
+                &$candidateKind,
+                &$candidateBase,
+                &$candidateStart
+            ): void {
+                if ($base < $targetDepth) {
+                    return;
+                }
+
+                if ($base > $candidateBase || ($base === $candidateBase && $start > $candidateStart)) {
+                    $candidateKind = $kind;
+                    $candidateBase = $base;
+                    $candidateStart = $start;
+                }
+            };
+
+            if (! empty($this->openDirectives)) {
+                $frame = $this->openDirectives[array_key_last($this->openDirectives)];
+                $consider('directive', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+            }
+
+            if (! empty($this->openConditions)) {
+                $frame = $this->openConditions[array_key_last($this->openConditions)];
+                $consider('condition', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+            }
+
+            if (! empty($this->openSwitches)) {
+                $frame = $this->openSwitches[array_key_last($this->openSwitches)];
+                $consider('switch', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+            }
+
+            if ($candidateKind === null) {
+                return;
+            }
+
+            if ($candidateKind === 'directive') {
+                $frame = array_pop($this->openDirectives);
+                if ($frame !== null) {
+                    $this->closeUnmatchedDirectiveFrame($frame, $endPos);
+                }
+
+                continue;
+            }
+
+            if ($candidateKind === 'condition') {
+                $frame = array_pop($this->openConditions);
+                if ($frame !== null) {
+                    $this->closeUnmatchedConditionFrame($frame, $endPos);
+                }
+
+                continue;
+            }
+
+            $frame = array_pop($this->openSwitches);
+            if ($frame !== null) {
+                $this->closeUnmatchedSwitchFrame($frame, $endPos);
+            }
+        }
+    }
+
+    /**
+     * @param  array{blockIdx: int, switchDirectiveIdx: int, currentCaseIdx: int|null, name: string, elementStackBase: int}  $frame
+     */
+    protected function closeUnmatchedSwitchFrame(array $frame, int $endPos): void
+    {
+        $blockIdx = $frame['blockIdx'];
+
+        $this->popElementsToDepth($frame['elementStackBase'] + 2);
+
+        if ($frame['currentCaseIdx'] !== null) {
+            $this->popIfTop($frame['currentCaseIdx']);
+        }
+
+        $this->popIfTop($frame['switchDirectiveIdx']);
+        $this->popIfTop($blockIdx);
+
+        $this->nodes[$blockIdx]['tokenCount'] = max(
+            $this->nodes[$blockIdx]['tokenCount'],
+            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        );
     }
 
     protected function createStandaloneDirective(string $directiveName, int $startPos, int $tokenCount, ?string $argsContent = null): void
@@ -890,6 +1012,8 @@ trait ProcessesDirectives
 
         $conditionIdx = array_key_last($this->openConditions);
         $frame = $this->openConditions[$conditionIdx];
+        $this->closeUnmatchedStructuresAtDepth($frame['elementStackBase'] + 1, $startPos);
+        $frame = $this->openConditions[$conditionIdx];
 
         $this->popIfTop($frame['currentBranchIdx']);
         $this->popElementsToDepth($frame['elementStackBase'] + 1);
@@ -921,7 +1045,37 @@ trait ProcessesDirectives
             return;
         }
 
+        $matchedIdx = -1;
+        for ($i = count($this->openConditions) - 1; $i >= 0; $i--) {
+            if ($this->conditionFrameAcceptsClose($this->openConditions[$i], $directiveName)) {
+                $matchedIdx = $i;
+                break;
+            }
+        }
+
+        if ($matchedIdx === -1) {
+            // Preserve legacy mixed condition terminators when no open frame owns the close exactly.
+            $matchedIdx = array_key_last($this->openConditions);
+        }
+
+        $targetDepth = $this->openConditions[$matchedIdx]['elementStackBase'] + 1;
+        $this->closeUnmatchedStructuresAtDepth($targetDepth, $startPos);
+
+        while (count($this->openConditions) - 1 > $matchedIdx) {
+            $frame = array_pop($this->openConditions);
+            if ($frame === null) {
+                continue;
+            }
+
+            $this->closeUnmatchedConditionFrame($frame, $startPos);
+        }
+
         $frame = array_pop($this->openConditions);
+        if ($frame === null) {
+            $this->pos += $tokenCount;
+
+            return;
+        }
 
         $this->popElementsToDepth($frame['elementStackBase'] + 1);
         $this->popIfTop($frame['currentBranchIdx']);
@@ -945,5 +1099,45 @@ trait ProcessesDirectives
         $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
 
         $this->pos += $tokenCount;
+    }
+
+    /**
+     * @param  array{blockIdx: int, currentBranchIdx: int, name: string, elementStackBase: int}  $frame
+     */
+    protected function conditionFrameAcceptsClose(array $frame, string $directiveName): bool
+    {
+        $directive = $this->directives->getDirective($frame['name']);
+        if ($directive === null) {
+            return false;
+        }
+
+        $conditionTerminators = $this->directives->getConditionTerminators();
+        $directiveName = StringInterner::lower($directiveName);
+
+        foreach ($directive->terminators as $terminator) {
+            $terminator = StringInterner::lower($terminator);
+            if ($terminator === $directiveName && in_array($terminator, $conditionTerminators, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{blockIdx: int, currentBranchIdx: int, name: string, elementStackBase: int}  $frame
+     */
+    protected function closeUnmatchedConditionFrame(array $frame, int $endPos): void
+    {
+        $blockIdx = $frame['blockIdx'];
+
+        $this->popElementsToDepth($frame['elementStackBase'] + 1);
+        $this->popIfTop($frame['currentBranchIdx']);
+        $this->popIfTop($blockIdx);
+
+        $this->nodes[$blockIdx]['tokenCount'] = max(
+            $this->nodes[$blockIdx]['tokenCount'],
+            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        );
     }
 }

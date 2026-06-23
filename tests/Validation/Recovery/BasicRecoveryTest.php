@@ -144,6 +144,204 @@ BLADE;
             ->and($directiveNames)->toContain('endif');
     });
 
+    test('unclosed nested directive does not inherit outer closing directive', function (): void {
+        $template = <<<'BLADE'
+@section('content')
+    <div>
+        @error('body')
+        <input name="z" />
+    </div>
+@endsection
+BLADE;
+
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $section = $doc->findBlockDirectiveByName('section');
+        $error = $doc->findBlockDirectiveByName('error');
+
+        expect($section)->not()->toBeNull()
+            ->and($section->endDirective())->not()->toBeNull()
+            ->and($section->endDirective()->nameText())->toBe('endsection')
+            ->and($error)->not()->toBeNull()
+            ->and($error->endDirective())->toBeNull()
+            ->and($error->getChildren())->toHaveCount(1);
+
+        $errorDirectiveNames = array_map(
+            fn (DirectiveNode $directive): string => $directive->nameText(),
+            $error->getChildrenOfType(DirectiveNode::class)
+        );
+
+        expect($errorDirectiveNames)->toBe(['error']);
+    });
+
+    test('unclosed nested block constructs do not inherit outer closing directive content', function (
+        string $opener,
+        string $innerName
+    ): void {
+        $template = <<<BLADE
+@section('content')
+    <div>
+        {$opener}
+        <input name="z" />
+    </div>
+@endsection
+BLADE;
+
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $section = $doc->findBlockDirectiveByName('section');
+        $inner = $doc->findBlockDirectiveByName($innerName);
+
+        expect($section)->not()->toBeNull()
+            ->and($section->endDirective())->not()->toBeNull()
+            ->and($section->endDirective()->nameText())->toBe('endsection')
+            ->and($inner)->not()->toBeNull()
+            ->and($inner->endDirective())->toBeNull()
+            ->and($inner->getChildren())->toHaveCount(1);
+
+        $innerDirectiveNames = array_map(
+            fn (DirectiveNode $directive): string => $directive->nameText(),
+            $inner->getChildrenOfType(DirectiveNode::class)
+        );
+
+        expect($innerDirectiveNames)->toBe([$innerName]);
+    })->with([
+        'paired directive' => ['@foreach ($items as $item)', 'foreach'],
+        'condition directive' => ['@if ($invalid)', 'if'],
+        'switch directive' => ['@switch($value)', 'switch'],
+    ]);
+
+    test('unclosed nested block constructs stop source span at recovery boundary', function (
+        string $template,
+        string $innerName,
+        array $excludedContent
+    ): void {
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $inner = $doc->findBlockDirectiveByName($innerName);
+
+        expect($inner)->not()->toBeNull()
+            ->and($inner->endDirective())->toBeNull()
+            ->and($inner->getChildren())->toHaveCount(1);
+
+        $innerContent = $inner->getDocumentContent();
+
+        foreach ($excludedContent as $content) {
+            expect($innerContent)->not()->toContain($content);
+        }
+    })->with([
+        'condition inside paired directive' => [
+            <<<'BLADE'
+@section('content')
+    @if($bad)
+@endsection
+@endif
+BLADE,
+            'if',
+            ['@endsection', '@endif'],
+        ],
+        'switch inside paired directive' => [
+            <<<'BLADE'
+@section('content')
+    @switch($value)
+@endsection
+@endswitch
+BLADE,
+            'switch',
+            ['@endsection', '@endswitch'],
+        ],
+        'paired directive inside condition' => [
+            <<<'BLADE'
+@if($ok)
+    @foreach($items as $item)
+@endif
+@endforeach
+BLADE,
+            'foreach',
+            ['@endif', '@endforeach'],
+        ],
+        'paired directive inside condition branch' => [
+            <<<'BLADE'
+@if($ok)
+    @foreach($items as $item)
+@else
+@endforeach
+@endif
+BLADE,
+            'foreach',
+            ['@else', '@endforeach'],
+        ],
+        'condition inside switch case' => [
+            <<<'BLADE'
+@switch($value)
+@case(1)
+    @if($bad)
+@case(2)
+@endif
+@endswitch
+BLADE,
+            'if',
+            ['@case(2)', '@endif'],
+        ],
+    ]);
+
+    test('unclosed nested condition does not inherit outer condition closing directive', function (
+        string $template,
+        string $outerName,
+        string $outerEndName,
+        string $innerName
+    ): void {
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $outer = $doc->findBlockDirectiveByName($outerName);
+        $inner = $doc->findBlockDirectiveByName($innerName);
+
+        expect($outer)->not()->toBeNull()
+            ->and($outer->endDirective())->not()->toBeNull()
+            ->and($outer->endDirective()->nameText())->toBe($outerEndName)
+            ->and($inner)->not()->toBeNull()
+            ->and($inner->endDirective())->toBeNull()
+            ->and($inner->getChildren())->toHaveCount(1);
+
+        $innerDirectiveNames = array_map(
+            fn (DirectiveNode $directive): string => $directive->nameText(),
+            $inner->getChildrenOfType(DirectiveNode::class)
+        );
+
+        expect($innerDirectiveNames)->toBe([$innerName]);
+    })->with([
+        'if closes outside unclosed auth' => [
+            <<<'BLADE'
+@if($outer)
+    @auth
+        inner
+@endif
+BLADE,
+            'if',
+            'endif',
+            'auth',
+        ],
+        'auth closes outside unclosed if' => [
+            <<<'BLADE'
+@auth
+    @if($inner)
+        inner
+@endAuth
+BLADE,
+            'auth',
+            'endauth',
+            'if',
+        ],
+    ]);
+
     test('escaped Blade sequences are emitted as escape and text nodes (@@, @{{ }})', function (): void {
         $template = <<<'BLADE'
 @@ This at-sign should be literal

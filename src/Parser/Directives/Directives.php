@@ -486,7 +486,7 @@ class Directives
             return false;
         }
 
-        return $directive->isSwitch ?? false;
+        return $directive->isSwitch;
     }
 
     /**
@@ -525,7 +525,7 @@ class Directives
             return false;
         }
 
-        return $directive->isSwitchBranch ?? false;
+        return $directive->isSwitchBranch;
     }
 
     /**
@@ -539,7 +539,7 @@ class Directives
             return false;
         }
 
-        return $directive->isSwitchTerminator ?? false;
+        return $directive->isSwitchTerminator;
     }
 
     /**
@@ -553,7 +553,7 @@ class Directives
             return false;
         }
 
-        return $directive->isConditionalPair ?? false;
+        return $directive->isConditionalPair;
     }
 
     /**
@@ -581,7 +581,7 @@ class Directives
             return false;
         }
 
-        return $directive->isConditionalClose ?? false;
+        return $directive->isConditionalClose;
     }
 
     /**

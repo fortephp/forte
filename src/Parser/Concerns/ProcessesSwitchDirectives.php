@@ -120,7 +120,11 @@ trait ProcessesSwitchDirectives
             return;
         }
 
-        $frame = &$this->openSwitches[array_key_last($this->openSwitches)];
+        $switchIdx = array_key_last($this->openSwitches);
+        $frame = $this->openSwitches[$switchIdx];
+        $this->closeUnmatchedStructuresAtDepth($frame['elementStackBase'] + 2, $startPos);
+
+        $frame = &$this->openSwitches[$switchIdx];
         $switchDirectiveIdx = $frame['switchDirectiveIdx'];
 
         // +2 because both block and @switch directive are on the stack
@@ -189,6 +193,9 @@ trait ProcessesSwitchDirectives
 
             return;
         }
+
+        $frame = $this->openSwitches[array_key_last($this->openSwitches)];
+        $this->closeUnmatchedStructuresAtDepth($frame['elementStackBase'] + 2, $startPos);
 
         $frame = array_pop($this->openSwitches);
         $blockIdx = $frame['blockIdx'];

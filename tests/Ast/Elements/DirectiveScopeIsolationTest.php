@@ -101,6 +101,239 @@ BLADE;
         expect($doc->render())->toBe($template);
     });
 
+    it('keeps shared component outside conditionally split wrapper tags', function (): void {
+        $template = <<<'BLADE'
+<div class="relative inline-block">
+    @unless ($unlinked)
+        <a href="{{ $url }}">
+    @endunless
+
+    <flux:avatar src="{{ $src }}" />
+
+    @unless ($unlinked)
+        </a>
+    @endunless
+</div>
+BLADE;
+
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $rootChildren = $doc->getChildren();
+        expect($rootChildren)->toHaveCount(1)
+            ->and($rootChildren[0])->toBeInstanceOf(ElementNode::class);
+
+        $outerDiv = $rootChildren[0]->asElement();
+        expect($outerDiv->tagNameText())->toBe('div')
+            ->and($outerDiv->isPaired())->toBeTrue();
+
+        $divChildren = $outerDiv->getChildren();
+        expect($divChildren)->toHaveCount(7)
+            ->and($divChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[1])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($divChildren[2])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[3])->toBeInstanceOf(ElementNode::class)
+            ->and($divChildren[4])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[5])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($divChildren[6])->toBeInstanceOf(TextNode::class);
+
+        $firstUnless = $divChildren[1]->asDirectiveBlock();
+        $avatar = $divChildren[3]->asElement();
+        $secondUnless = $divChildren[5]->asDirectiveBlock();
+
+        expect($firstUnless->nameText())->toBe('unless')
+            ->and($firstUnless->getParent())->toBe($outerDiv)
+            ->and($avatar->tagNameText())->toBe('flux:avatar')
+            ->and($avatar->isSelfClosing())->toBeTrue()
+            ->and($avatar->getParent())->toBe($outerDiv)
+            ->and($secondUnless->nameText())->toBe('unless')
+            ->and($secondUnless->getParent())->toBe($outerDiv);
+
+        $firstUnlessChildren = $firstUnless->getChildren();
+        expect($firstUnlessChildren)->toHaveCount(2)
+            ->and($firstUnlessChildren[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($firstUnlessChildren[1])->toBeInstanceOf(DirectiveNode::class);
+
+        $firstUnlessOpen = $firstUnlessChildren[0]->asDirective();
+        $firstUnlessClose = $firstUnlessChildren[1]->asDirective();
+
+        expect($firstUnlessOpen->nameText())->toBe('unless')
+            ->and($firstUnlessOpen->getParent())->toBe($firstUnless)
+            ->and($firstUnlessClose->nameText())->toBe('endunless')
+            ->and($firstUnlessClose->getParent())->toBe($firstUnless);
+
+        $firstUnlessOpenChildren = $firstUnlessOpen->getChildren();
+        expect($firstUnlessOpenChildren)->toHaveCount(2)
+            ->and($firstUnlessOpenChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($firstUnlessOpenChildren[1])->toBeInstanceOf(ElementNode::class);
+
+        $anchor = $firstUnlessOpenChildren[1]->asElement();
+        expect($anchor->tagNameText())->toBe('a')
+            ->and($anchor->isPaired())->toBeFalse()
+            ->and($anchor->getParent())->toBe($firstUnlessOpen)
+            ->and($anchor->getDocumentContent())->toBe('<a href="{{ $url }}">')
+            ->and($anchor->getDocumentContent())->not()->toContain('<flux:avatar');
+
+        $secondUnlessChildren = $secondUnless->getChildren();
+        expect($secondUnlessChildren)->toHaveCount(2)
+            ->and($secondUnlessChildren[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($secondUnlessChildren[1])->toBeInstanceOf(DirectiveNode::class);
+
+        $secondUnlessOpen = $secondUnlessChildren[0]->asDirective();
+        $secondUnlessClose = $secondUnlessChildren[1]->asDirective();
+
+        expect($secondUnlessOpen->nameText())->toBe('unless')
+            ->and($secondUnlessOpen->getParent())->toBe($secondUnless)
+            ->and($secondUnlessClose->nameText())->toBe('endunless')
+            ->and($secondUnlessClose->getParent())->toBe($secondUnless);
+
+        $secondUnlessOpenChildren = $secondUnlessOpen->getChildren();
+        expect($secondUnlessOpenChildren)->toHaveCount(3)
+            ->and($secondUnlessOpenChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($secondUnlessOpenChildren[1])->toBeInstanceOf(StrayClosingTagNode::class)
+            ->and($secondUnlessOpenChildren[2])->toBeInstanceOf(TextNode::class);
+
+        $strayAnchorClose = $secondUnlessOpenChildren[1]->asStrayClosingTag();
+        expect($strayAnchorClose->tagNameText())->toBe('a')
+            ->and($strayAnchorClose->getParent())->toBe($secondUnlessOpen)
+            ->and($strayAnchorClose->getDocumentContent())->toBe('</a>');
+    });
+
+    it('keeps shared body outside alternate conditionally split wrapper tags', function (): void {
+        $template = <<<'BLADE'
+<div>
+    @if ($linked)
+        <a href="{{ $url }}">
+    @else
+        <button type="button">
+    @endif
+
+    <span>{{ $label }}</span>
+
+    @if ($linked)
+        </a>
+    @else
+        </button>
+    @endif
+</div>
+BLADE;
+
+        $doc = $this->parse($template);
+
+        expect($doc->render())->toBe($template);
+
+        $rootChildren = $doc->getChildren();
+        expect($rootChildren)->toHaveCount(1)
+            ->and($rootChildren[0])->toBeInstanceOf(ElementNode::class);
+
+        $outerDiv = $rootChildren[0]->asElement();
+        expect($outerDiv->tagNameText())->toBe('div')
+            ->and($outerDiv->isPaired())->toBeTrue();
+
+        $divChildren = $outerDiv->getChildren();
+        expect($divChildren)->toHaveCount(7)
+            ->and($divChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[1])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($divChildren[2])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[3])->toBeInstanceOf(ElementNode::class)
+            ->and($divChildren[4])->toBeInstanceOf(TextNode::class)
+            ->and($divChildren[5])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($divChildren[6])->toBeInstanceOf(TextNode::class);
+
+        $openingIf = $divChildren[1]->asDirectiveBlock();
+        $span = $divChildren[3]->asElement();
+        $closingIf = $divChildren[5]->asDirectiveBlock();
+
+        expect($openingIf->nameText())->toBe('if')
+            ->and($openingIf->getParent())->toBe($outerDiv)
+            ->and($span->tagNameText())->toBe('span')
+            ->and($span->isPaired())->toBeTrue()
+            ->and($span->getParent())->toBe($outerDiv)
+            ->and($closingIf->nameText())->toBe('if')
+            ->and($closingIf->getParent())->toBe($outerDiv);
+
+        $openingIfChildren = $openingIf->getChildren();
+        expect($openingIfChildren)->toHaveCount(3)
+            ->and($openingIfChildren[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($openingIfChildren[1])->toBeInstanceOf(DirectiveNode::class)
+            ->and($openingIfChildren[2])->toBeInstanceOf(DirectiveNode::class);
+
+        $ifOpen = $openingIfChildren[0]->asDirective();
+        $elseBranch = $openingIfChildren[1]->asDirective();
+        $ifClose = $openingIfChildren[2]->asDirective();
+
+        expect($ifOpen->nameText())->toBe('if')
+            ->and($ifOpen->getParent())->toBe($openingIf)
+            ->and($elseBranch->nameText())->toBe('else')
+            ->and($elseBranch->getParent())->toBe($openingIf)
+            ->and($ifClose->nameText())->toBe('endif')
+            ->and($ifClose->getParent())->toBe($openingIf);
+
+        $ifOpenChildren = $ifOpen->getChildren();
+        expect($ifOpenChildren)->toHaveCount(2)
+            ->and($ifOpenChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($ifOpenChildren[1])->toBeInstanceOf(ElementNode::class);
+
+        $anchor = $ifOpenChildren[1]->asElement();
+        expect($anchor->tagNameText())->toBe('a')
+            ->and($anchor->isPaired())->toBeFalse()
+            ->and($anchor->getParent())->toBe($ifOpen)
+            ->and($anchor->getDocumentContent())->toBe('<a href="{{ $url }}">')
+            ->and($anchor->getDocumentContent())->not()->toContain('<span');
+
+        $elseChildren = $elseBranch->getChildren();
+        expect($elseChildren)->toHaveCount(2)
+            ->and($elseChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($elseChildren[1])->toBeInstanceOf(ElementNode::class);
+
+        $button = $elseChildren[1]->asElement();
+        expect($button->tagNameText())->toBe('button')
+            ->and($button->isPaired())->toBeFalse()
+            ->and($button->getParent())->toBe($elseBranch)
+            ->and($button->getDocumentContent())->toBe('<button type="button">')
+            ->and($button->getDocumentContent())->not()->toContain('<span');
+
+        $closingIfChildren = $closingIf->getChildren();
+        expect($closingIfChildren)->toHaveCount(3)
+            ->and($closingIfChildren[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($closingIfChildren[1])->toBeInstanceOf(DirectiveNode::class)
+            ->and($closingIfChildren[2])->toBeInstanceOf(DirectiveNode::class);
+
+        $closingIfOpen = $closingIfChildren[0]->asDirective();
+        $closingElse = $closingIfChildren[1]->asDirective();
+        $closingIfEnd = $closingIfChildren[2]->asDirective();
+
+        expect($closingIfOpen->nameText())->toBe('if')
+            ->and($closingIfOpen->getParent())->toBe($closingIf)
+            ->and($closingElse->nameText())->toBe('else')
+            ->and($closingElse->getParent())->toBe($closingIf)
+            ->and($closingIfEnd->nameText())->toBe('endif')
+            ->and($closingIfEnd->getParent())->toBe($closingIf);
+
+        $closingIfOpenChildren = $closingIfOpen->getChildren();
+        expect($closingIfOpenChildren)->toHaveCount(3)
+            ->and($closingIfOpenChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($closingIfOpenChildren[1])->toBeInstanceOf(StrayClosingTagNode::class)
+            ->and($closingIfOpenChildren[2])->toBeInstanceOf(TextNode::class);
+
+        $strayAnchorClose = $closingIfOpenChildren[1]->asStrayClosingTag();
+        expect($strayAnchorClose->tagNameText())->toBe('a')
+            ->and($strayAnchorClose->getParent())->toBe($closingIfOpen)
+            ->and($strayAnchorClose->getDocumentContent())->toBe('</a>');
+
+        $closingElseChildren = $closingElse->getChildren();
+        expect($closingElseChildren)->toHaveCount(3)
+            ->and($closingElseChildren[0])->toBeInstanceOf(TextNode::class)
+            ->and($closingElseChildren[1])->toBeInstanceOf(StrayClosingTagNode::class)
+            ->and($closingElseChildren[2])->toBeInstanceOf(TextNode::class);
+
+        $strayButtonClose = $closingElseChildren[1]->asStrayClosingTag();
+        expect($strayButtonClose->tagNameText())->toBe('button')
+            ->and($strayButtonClose->getParent())->toBe($closingElse)
+            ->and($strayButtonClose->getDocumentContent())->toBe('</button>');
+    });
+
     it('handles multiple split elements across directives', function (): void {
         $template = <<<'BLADE'
 @if ($a)
