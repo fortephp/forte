@@ -1,0 +1,32 @@
+[
+  {
+    "name": "session",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endSession"
+    }
+  },
+  {
+    "name": "endSession",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  },
+  {
+    "name": "context",
+    "args": true,
+    "structure": {
+      "role": "open",
+      "terminators": "endContext"
+    }
+  },
+  {
+    "name": "endContext",
+    "args": false,
+    "structure": {
+      "role": "close"
+    }
+  }
+]

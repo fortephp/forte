@@ -1,6 +1,6 @@
 [
   {
-    "name": "class,classes,style,styles,selected,checked,disabled,required,readonly,dd,dump,method,inject,js,json,unset,use",
+    "name": "class,classes,style,styles,selected,checked,disabled,required,readonly,dd,dump,method,inject,js,json,unset,use,bool,vite",
     "args": true
   },
   {
