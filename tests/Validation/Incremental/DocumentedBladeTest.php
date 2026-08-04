@@ -12,6 +12,6 @@ describe('Documented Blade Samples', function (): void {
     })->with('blade docs');
 
     it('parses incrementally at multiple byte positions', function ($path): void {
-        $this->assertIncrementalParsing(file_get_contents($path), 0.05);
+        $this->assertIncrementalParsing(file_get_contents($path));
     })->with('blade docs');
 });

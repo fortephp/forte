@@ -118,6 +118,16 @@ JSON;
         ));
     }
 
+    /**
+     * Lex every prefix of a document and assert the tokens still reconstruct it.
+     *
+     * The timeout guards against runaway behaviour — a prefix that ends mid-construct
+     * sending the lexer quadratic, or into a loop — so it wants to be generous enough
+     * never to fire on a healthy run. Lexing the largest fixture here has a median
+     * around 25ms but outliers past 80ms from GC and scheduler noise alone, so a
+     * budget near that median makes the suite flaky without catching anything a
+     * looser one misses.
+     */
     public function assertIncrementalParsing(
         string $content,
         float $timeout = 2.0,

@@ -13,6 +13,6 @@ describe('Filament Package Blade Files', function (): void {
 
     it('parses incrementally at multiple byte positions', function ($path): void {
         $content = file_get_contents($path);
-        $this->assertIncrementalParsing(file_get_contents($path), 0.05);
+        $this->assertIncrementalParsing(file_get_contents($path));
     })->with('filament samples');
 });
