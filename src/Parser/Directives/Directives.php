@@ -328,6 +328,15 @@ class Directives
         return array_key_exists(StringInterner::lower($directive), $this->conditions);
     }
 
+    /**
+     * Whether a directive opens a block that a terminator closes.
+     *
+     * Several directives accept more than one terminator: `@push` closes with
+     * either `@endpush` or `@endpushOnce`, and `@component` with `@endcomponent`
+     * or `@endcomponentClass`. Directives whose extra terminators are branches
+     * rather than closers, such as `@if` or `@section`, are dispatched by the
+     * conditional and section-style paths before this is consulted.
+     */
     public function isPaired(string $directive): bool
     {
         $directive = StringInterner::lower($directive);
@@ -339,7 +348,7 @@ class Directives
         $instance = $this->directives[$directive];
 
         return $instance->role === StructureRole::Opening
-            && count($instance->terminators) === 1
+            && $instance->terminators !== []
             && $instance->terminator !== null;
     }
 
@@ -661,6 +670,29 @@ class Directives
         return $out;
     }
 
+    /**
+     * Pick the terminator that closes a directive outright.
+     *
+     * Terminator lists mix branch keywords with closers, in either order:
+     * `@if` declares `elseif,endif` while `@push` declares `endpush,endpushOnce`.
+     * The first `end*` entry is the one to name when reporting or completing an
+     * unclosed directive; the last entry is used only when none qualifies, which
+     * keeps section-style lists such as `show,append,overwrite,stop,endsection`
+     * resolving as they did.
+     *
+     * @param  string[]  $terminators
+     */
+    protected function resolvePrimaryTerminator(array $terminators): string
+    {
+        foreach ($terminators as $terminator) {
+            if (str_starts_with($terminator, 'end')) {
+                return $terminator;
+            }
+        }
+
+        return $terminators[array_key_last($terminators)];
+    }
+
     private function invalidateDirectiveCaches(): void
     {
         $this->conditionTerminatorsCache = null;
@@ -716,7 +748,7 @@ class Directives
                 $hasConditionLikeBranches = count($conditionLikeBranches) > 0;
 
                 if (count($terminators) > 0) {
-                    $terminator = $terminators[array_key_last($terminators)];
+                    $terminator = $this->resolvePrimaryTerminator($terminators);
                 }
 
                 $typeVal = $structure['type'] ?? null;
