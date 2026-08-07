@@ -382,7 +382,7 @@ trait HtmlScanner
             // Extract and check if it's a known directive
             if ($tempPos > $nameStart) {
                 $name = substr($this->source, $nameStart, $tempPos - $nameStart);
-                if ($this->directives()->isDirective($name)) {
+                if ($this->directives()->isDirective($name) && ! $this->hasModifierCallAt($tempPos)) {
                     $this->returnState = State::BeforeAttrName;
                     $this->scanDirective();
 
