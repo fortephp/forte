@@ -33,6 +33,17 @@ describe('Directives In Attributes', function (): void {
             ->and($doc->render())->toBe($blade);
     });
 
+    test('directive inside quoted attribute value is exposed as a value part', function (): void {
+        $blade = '<div title="@endif"></div>';
+
+        $element = $this->parse($blade)->getElements()->first();
+        $parts = $element->attributes()->first()->value()?->getParts() ?? [];
+
+        expect($parts)->toHaveCount(1)
+            ->and($parts[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($parts[0]->nameText())->toBe('endif');
+    });
+
     test('non-directive text content does not get lost', function (): void {
         $blade = '<div @not-a-directive([])></div>';
 
