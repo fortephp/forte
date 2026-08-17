@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Forte\Lexer\Lexer;
+use Forte\Lexer\Tokens\TokenType;
+use Forte\Parser\NodeKind;
 use Forte\Parser\TreeBuilder;
 
 describe('Stack Depth Limits', function (): void {
@@ -81,6 +83,29 @@ describe('Stack Depth Limits', function (): void {
 
             expect(fn () => $builder->build())
                 ->toThrow(RuntimeException::class, 'depth');
+        });
+
+        test('repeated malformed component blocks recover as bounded siblings', function (): void {
+            $unit = "@component('alert')Body@endcomponent\n";
+            $blade = str_repeat($unit, 300);
+
+            $lexer = new Lexer($blade);
+            $result = $lexer->tokenize();
+            $builder = new TreeBuilder($result->tokens, $blade);
+            $parsed = $builder->build();
+
+            $blocks = array_filter(
+                $parsed['nodes'],
+                static fn (array $node): bool => $node['kind'] === NodeKind::DirectiveBlock
+            );
+            $directiveTokens = array_filter(
+                $result->tokens,
+                static fn (array $token): bool => $token['type'] === TokenType::Directive
+            );
+
+            expect($blocks)->toHaveCount(300)
+                ->and($directiveTokens)->toHaveCount(300)
+                ->and($parsed['source'])->toBe($blade);
         });
     });
 
