@@ -8,6 +8,22 @@ use Forte\Ast\Trivia\TriviaKind;
 use Forte\Ast\Trivia\TriviaParser;
 
 describe('Text Trivia', function (): void {
+    it('exposes decoded HTML text without losing source spelling', function (): void {
+        $text = $this->parse('<p>A&amp;B &#32; &copy test &notit;</p>')->elements->first()->firstText();
+
+        expect($text)->toBeInstanceOf(TextNode::class)
+            ->and($text->getContent())->toBe('A&amp;B &#32; &copy test &notit;')
+            ->and($text->getDecodedContent())->toBe('A&B   © test ¬it;');
+    });
+
+    it('preserves character references in raw-text element semantics', function (): void {
+        $text = $this->parse('<script>A&amp;B</script>')->elements->first()->firstText();
+
+        expect($text)->toBeInstanceOf(TextNode::class)
+            ->and($text->getDecodedContent())->toBe('A&B')
+            ->and($text->getSemanticContent())->toBe('A&amp;B');
+    });
+
     it('parses leading whitespace, content, and trailing whitespace', function (): void {
         $trivia = TriviaParser::parse("  \n  Hello World  \n  ");
 

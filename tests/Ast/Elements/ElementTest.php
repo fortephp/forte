@@ -68,6 +68,29 @@ describe('Element Parsing', function (): void {
             ->and($el->attributes()->get('id')->valueText())->toBe('main');
     });
 
+    it('exposes decoded static attribute values without losing source spelling', function (): void {
+        $el = $this->parseElement('<div title="A&amp;B" role="but&#116;on" data-copy="&copy test" data-ambiguous="&copy=x">');
+
+        expect($el->attributes()->get('title')->valueText())->toBe('A&amp;B')
+            ->and($el->attributes()->get('title')->decodedValueText())->toBe('A&B')
+            ->and($el->attributes()->get('role')->decodedValueText())->toBe('button')
+            ->and($el->attributes()->get('data-copy')->decodedValueText())->toBe('© test')
+            ->and($el->attributes()->get('data-ambiguous')->decodedValueText())->toBe('&copy=x');
+    });
+
+    it('applies HTML numeric character-reference replacement rules', function (): void {
+        $el = $this->parseElement('<div data-value="&#0; &#x80; &#x1F642;">');
+
+        expect($el->attributes()->get('data-value')->decodedValueText())->toBe('� € 🙂');
+    });
+
+    it('preserves unknown and ambiguous named references', function (): void {
+        $el = $this->parseElement('<div data-one="&unknown;" data-two="&notit;">');
+
+        expect($el->attributes()->get('data-one')->decodedValueText())->toBe('&unknown;')
+            ->and($el->attributes()->get('data-two')->decodedValueText())->toBe('&notit;');
+    });
+
     it('parses self-closing element correctly', function (): void {
         $el = $this->parseElement('<br />');
 

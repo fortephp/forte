@@ -4,14 +4,28 @@ declare(strict_types=1);
 
 namespace Forte\Ast;
 
+use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\Trivia\Trivia;
 use Forte\Ast\Trivia\TriviaKind;
 use Forte\Ast\Trivia\TriviaParser;
+use Forte\Support\HtmlCharacterReferences;
 
 class TextNode extends Node
 {
+    private const RAW_TEXT_ELEMENTS = [
+        'iframe' => true,
+        'noembed' => true,
+        'noframes' => true,
+        'plaintext' => true,
+        'script' => true,
+        'style' => true,
+        'xmp' => true,
+    ];
+
     /** @var array<int, Trivia>|null */
     private ?array $cachedTrivia = null;
+
+    private ?string $cachedDecodedContent = null;
 
     /**
      * Get the text content.
@@ -19,6 +33,33 @@ class TextNode extends Node
     public function getContent(): string
     {
         return $this->getDocumentContent();
+    }
+
+    /**
+     * Get text with HTML character references decoded.
+     *
+     * This is intended for data and RCDATA semantics. Raw-text element consumers
+     * should continue to use getContent().
+     */
+    public function getDecodedContent(): string
+    {
+        return $this->cachedDecodedContent ??= HtmlCharacterReferences::decodeText($this->getContent());
+    }
+
+    /**
+     * Get the text content as exposed by an HTML document tree.
+     *
+     * Character references are decoded in data and RCDATA, but remain literal in
+     * raw-text elements such as script and style.
+     */
+    public function getSemanticContent(): string
+    {
+        $element = $this->closestOfType(ElementNode::class);
+        if ($element !== null && isset(self::RAW_TEXT_ELEMENTS[strtolower($element->tagNameText())])) {
+            return $this->getContent();
+        }
+
+        return $this->getDecodedContent();
     }
 
     /**
@@ -104,6 +145,8 @@ class TextNode extends Node
 
         $data['type'] = 'text';
         $data['text'] = $this->getContent();
+        $data['decoded_text'] = $this->getDecodedContent();
+        $data['semantic_text'] = $this->getSemanticContent();
         $data['is_whitespace'] = $this->isWhitespace();
         $data['has_significant_content'] = $this->hasSignificantContent();
         $data['trimmed_content'] = $this->getTrimmedContent();

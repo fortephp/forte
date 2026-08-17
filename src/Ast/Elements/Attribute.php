@@ -13,6 +13,7 @@ use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\NodeKind;
 use Forte\Parser\NodeKindRegistry;
 use Forte\Parser\TreeBuilder;
+use Forte\Support\HtmlCharacterReferences;
 use JsonSerializable;
 use RuntimeException;
 use Stringable;
@@ -26,6 +27,9 @@ class Attribute implements JsonSerializable, Stringable
 
     /** @var string|null|false false = not cached, null = boolean attr, string = value */
     private string|null|false $cachedValue = false;
+
+    /** @var string|null|false false = not cached, null = boolean attr, string = value */
+    private string|null|false $cachedDecodedValue = false;
 
     private ?string $cachedType = null;
 
@@ -188,6 +192,26 @@ class Attribute implements JsonSerializable, Stringable
         $endToken = $tokens[$tokenEnd - 1];
 
         return $this->cachedValue = substr($source, $startToken['start'], $endToken['end'] - $startToken['start']);
+    }
+
+    /**
+     * Get the browser-semantic value of a static HTML attribute.
+     *
+     * Character references are decoded using HTML's attribute-value rules. Raw source
+     * spelling remains available through valueText() for diagnostics and rewriting.
+     */
+    public function decodedValueText(): ?string
+    {
+        if ($this->cachedDecodedValue !== false) {
+            return $this->cachedDecodedValue;
+        }
+
+        $value = $this->valueText();
+        if ($value === null) {
+            return $this->cachedDecodedValue = null;
+        }
+
+        return $this->cachedDecodedValue = HtmlCharacterReferences::decodeAttribute($value);
     }
 
     /**
@@ -699,6 +723,7 @@ class Attribute implements JsonSerializable, Stringable
         } else {
             $data['name_text'] = $this->nameText();
             $data['value_text'] = $this->valueText();
+            $data['decoded_value_text'] = $this->decodedValueText();
 
             $nameIdx = $this->getNameNodeIndex();
             if ($nameIdx !== -1) {
