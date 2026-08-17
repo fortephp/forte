@@ -232,6 +232,17 @@ describe('PHP Blocks', function (): void {
             ->and($result->tokens[2]['type'])->toBe(TokenType::PhpBlockEnd);
     });
 
+    test('@php block between HTML attributes resumes attribute scanning', function (): void {
+        $source = '<div @php dd($value); @endphp class="panel"></div>';
+        $lexer = new Lexer($source);
+        $result = $lexer->tokenize();
+        $php = collect($result->tokens)->firstWhere('type', TokenType::PhpBlock);
+
+        expect($php)->not->toBeNull()
+            ->and(substr($source, $php['start'], $php['end'] - $php['start']))->toBe(' dd($value); ')
+            ->and(Token::reconstructFromTokens($result->tokens, $source))->toBe($source);
+    });
+
     test('@endphp outside PHP block still emits PhpBlockEnd', function (): void {
         $source = '🐘 @endphp 🐘';
         $lexer = new Lexer($source);

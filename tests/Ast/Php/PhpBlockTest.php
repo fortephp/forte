@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Forte\Ast\Document\Document;
+use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\PhpBlockNode;
 use Forte\Ast\TextNode;
 
@@ -76,5 +77,22 @@ describe('PHP Block Parsing', function (): void {
             ->and($children[0])->toBeInstanceOf(PhpBlockNode::class)
             ->and($children[0]->asPhpBlock()->code())->toBe("echo 'I am PHP {{ not Blade }}'")
             ->and($children[0]->render())->toBe($source);
+    });
+
+    test('parses a PHP block between element attributes without consuming the next attribute', function (): void {
+        $source = '<div @php dd($value); @endphp class="panel"></div>';
+        $doc = Document::parse($source);
+        $element = $doc->getElements()->first();
+
+        expect($element)->toBeInstanceOf(ElementNode::class)
+            ->and($element->attributes()->has('class'))->toBeTrue()
+            ->and($element->attributes()->get('class')->decodedValueText())->toBe('panel');
+
+        $phpBlock = collect($element->internalNodes())
+            ->first(fn ($node): bool => $node instanceof PhpBlockNode);
+
+        expect($phpBlock)->toBeInstanceOf(PhpBlockNode::class)
+            ->and($phpBlock->code())->toBe('dd($value);')
+            ->and($doc->render())->toBe($source);
     });
 });
