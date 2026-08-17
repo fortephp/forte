@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Forte\Ast\DirectiveNode;
 use Forte\Ast\EchoNode;
 
 describe('Attribute Internal Traversal', function (): void {
@@ -37,5 +38,17 @@ BLADE;
         expect($compound)->toBe(['$key', '$value'])
             ->and($directive)->toBe(['$k2', '$v2'])
             ->and($all)->toBe(['$k2', '$key', '$v2', '$value']);
+    });
+
+    it('preserves directive semantics inside ordinary attribute values', function (): void {
+        $element = $this->parseElement('<div title="@lang(\'messages.title\')"></div>');
+        $nodes = $element->attributes()->first()?->getInternalNodes() ?? [];
+
+        expect($nodes)->toHaveCount(1)
+            ->and($nodes[0])->toBeInstanceOf(DirectiveNode::class)
+            ->and($nodes[0]->nameText())->toBe('lang')
+            ->and($nodes[0]->arguments())->toBe('(\'messages.title\')')
+            ->and($nodes[0]->hasArguments())->toBeTrue()
+            ->and($nodes[0]->render())->toBe('@lang(\'messages.title\')');
     });
 });
