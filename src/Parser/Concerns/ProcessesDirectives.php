@@ -828,6 +828,25 @@ trait ProcessesDirectives
 
     protected function processConditionDirective(string $directiveName, int $startPos, int $tokenCount, ?string $argsContent = null): void
     {
+        $directive = $this->directives->getDirective($directiveName);
+
+        // Some Blade directives are structurally overloaded. In particular,
+        // parenthesized @empty(...) opens an empty/endempty condition, while
+        // bare @empty is the intermediate branch of an open @forelse. Prefer
+        // the directive's own opening role when this invocation has arguments;
+        // otherwise the surrounding directive frame gets the first chance to
+        // claim it as a branch.
+        if ($argsContent !== null
+            && $this->isBranchOfOpenDirective($directiveName)
+            && $this->directives->isCondition($directiveName)
+            && $directive !== null
+            && $directive->role === StructureRole::Opening
+            && $this->hasOwnConditionTerminatorBeforeOuterBoundary($directiveName, $startPos + $tokenCount)) {
+            $this->openCondition($directiveName, $startPos, $tokenCount, $argsContent);
+
+            return;
+        }
+
         if ($this->tryHandleConditionDirectiveWithOpenDirective($directiveName, $startPos, $tokenCount, $argsContent)) {
             return;
         }
@@ -854,7 +873,6 @@ trait ProcessesDirectives
             }
         }
 
-        $directive = $this->directives->getDirective($directiveName);
         if ($this->directives->isCondition($directiveName)
             && $directive !== null
             && $directive->role === StructureRole::Opening) {
@@ -864,6 +882,37 @@ trait ProcessesDirectives
         }
 
         $this->createStandaloneDirective($directiveName, $startPos, $tokenCount, $argsContent);
+    }
+
+    /**
+     * Resolve a parenthesized directive whose name is also an active outer
+     * branch. Its own closer is the structural evidence that it opens a nested
+     * condition. Without that closer, retaining the outer branch interpretation
+     * gives downstream validation an accurate malformed tree to diagnose.
+     */
+    protected function hasOwnConditionTerminatorBeforeOuterBoundary(string $directiveName, int $searchStart): bool
+    {
+        $directive = $this->directives->getDirective($directiveName);
+        if ($directive === null) {
+            return false;
+        }
+
+        $conditionTerminators = array_values(array_intersect(
+            $directive->terminators,
+            $this->directives->getConditionTerminators()
+        ));
+        if ($conditionTerminators === []) {
+            return false;
+        }
+
+        $searchEnd = $this->findOpenDirectiveBoundary([$directiveName], $searchStart);
+
+        return $this->directiveIndex()->findMatchingTerminator(
+            $directiveName,
+            $searchStart,
+            $conditionTerminators,
+            $searchEnd
+        ) !== null;
     }
 
     protected function tryHandleConditionDirectiveWithOpenDirective(

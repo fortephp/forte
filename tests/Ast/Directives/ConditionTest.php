@@ -211,4 +211,116 @@ BLADE;
         expect(count($textNodes))->toBeGreaterThanOrEqual(1)
             ->and($doc->render())->toBe($source);
     });
+
+    it('parses the parenthesized empty directive as a condition', function (): void {
+        $source = '@empty($records) Empty @else Not empty @endempty';
+        $doc = $this->parse($source);
+        $children = $doc->getChildren();
+
+        expect($children)->toHaveCount(1)
+            ->and($children[0])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($children[0]->asDirectiveBlock()->nameText())->toBe('empty')
+            ->and($children[0]->asDirectiveBlock()->arguments())->toBe('($records)');
+
+        $directives = $children[0]->nodes()->directives()->all();
+
+        expect($directives)->toHaveCount(3)
+            ->and($directives[0]->nameText())->toBe('empty')
+            ->and($directives[1]->nameText())->toBe('else')
+            ->and($directives[2]->nameText())->toBe('endempty')
+            ->and($doc->render())->toBe($source);
+    });
+
+    it('distinguishes parenthesized empty conditions from forelse empty branches', function (): void {
+        $source = <<<'BLADE'
+@forelse($records as $record)
+    @empty($record->name)
+        Missing name
+    @else
+        {{ $record->name }}
+    @endempty
+@empty
+    No records
+@endforelse
+BLADE;
+        $doc = $this->parse($source);
+        $children = $doc->getChildren();
+
+        expect($children)->toHaveCount(1)
+            ->and($children[0])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($children[0]->asDirectiveBlock()->nameText())->toBe('forelse');
+
+        $forelse = $children[0]->asDirectiveBlock();
+        $forelseDirectives = $forelse->nodes()->directives()->values();
+        $nestedEmptyBlocks = $forelse->descendantNodes()->blockDirectives()->values();
+
+        expect($forelseDirectives)->toHaveCount(3)
+            ->and($forelseDirectives[0]->nameText())->toBe('forelse')
+            ->and($forelseDirectives[1]->nameText())->toBe('empty')
+            ->and($forelseDirectives[1]->arguments())->toBeNull()
+            ->and($forelseDirectives[2]->nameText())->toBe('endforelse')
+            ->and($nestedEmptyBlocks)->toHaveCount(1)
+            ->and($nestedEmptyBlocks[0]->nameText())->toBe('empty')
+            ->and($nestedEmptyBlocks[0]->arguments())->toBe('($record->name)')
+            ->and($doc->render())->toBe($source);
+    });
+
+    it('retains an unterminated parenthesized empty as the forelse branch for recovery', function (): void {
+        $source = '@forelse($records as $record) {{ $record }} @empty($records) None @endforelse';
+        $doc = $this->parse($source);
+        $children = $doc->getChildren();
+
+        expect($children)->toHaveCount(1)
+            ->and($children[0])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($children[0]->asDirectiveBlock()->nameText())->toBe('forelse');
+
+        $directives = $children[0]->nodes()->directives()->values();
+
+        expect($directives)->toHaveCount(3)
+            ->and($directives[0]->nameText())->toBe('forelse')
+            ->and($directives[1]->nameText())->toBe('empty')
+            ->and($directives[1]->arguments())->toBe('($records)')
+            ->and($directives[1]->isIntermediate())->toBeTrue()
+            ->and($directives[2]->nameText())->toBe('endforelse')
+            ->and($doc->render())->toBe($source);
+    });
+
+    it('keeps nested empty branches inside their containing condition', function (): void {
+        $source = <<<'BLADE'
+@if ($show)
+    Visible
+@else
+    @empty($first)
+        First is empty
+    @else
+        First is present
+    @endempty
+
+    @empty($second)
+        Second is empty
+    @else
+        Second is present
+    @endempty
+@endif
+BLADE;
+        $doc = $this->parse($source);
+        $children = $doc->getChildren();
+
+        expect($children)->toHaveCount(1)
+            ->and($children[0])->toBeInstanceOf(DirectiveBlockNode::class)
+            ->and($children[0]->asDirectiveBlock()->nameText())->toBe('if');
+
+        $outerBlock = $children[0]->asDirectiveBlock();
+        $outerDirectives = $outerBlock->nodes()->directives()->values();
+        $emptyBlocks = $outerBlock->descendantNodes()->blockDirectives()->values();
+
+        expect($outerDirectives)->toHaveCount(3)
+            ->and($outerDirectives[0]->nameText())->toBe('if')
+            ->and($outerDirectives[1]->nameText())->toBe('else')
+            ->and($outerDirectives[2]->nameText())->toBe('endif')
+            ->and($emptyBlocks)->toHaveCount(2)
+            ->and($emptyBlocks[0]->nameText())->toBe('empty')
+            ->and($emptyBlocks[1]->nameText())->toBe('empty')
+            ->and($doc->render())->toBe($source);
+    });
 });
