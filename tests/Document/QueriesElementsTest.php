@@ -16,6 +16,32 @@ describe('Document Elements', function (): void {
             ->and($elements)->toBeInstanceOf(NodeCollection::class);
     });
 
+    it('offers lazy fluent element and component queries', function (): void {
+        $doc = $this->parse('<DIV id=" first "></DIV><span id="target"></span><i id="target"></i><x-alert/><x-button/>');
+
+        expect($doc->queryElements())->toHaveCount(3)
+            ->and($doc->queryElements('div')->first()?->tagNameText())->toBe('DIV')
+            ->and($doc->queryElements(['div', 'span']))->toHaveCount(2)
+            ->and($doc->queryComponents(['x-alert']))->toHaveCount(1)
+            ->and($doc->elementById(' first ')?->tagNameText())->toBe('DIV')
+            ->and($doc->elementById('first'))->toBeNull()
+            ->and($doc->elementById('target')?->tagNameText())->toBe('span');
+    });
+
+    it('offers expressive first, presence, and grouped element queries', function (): void {
+        $doc = $this->parse('<DIV id="first"></DIV><span></span><div id="second"></div>');
+        $groups = $doc->elementsGroupedByName(['div', 'span', 'missing']);
+
+        expect($doc->firstElement()?->isTag('div'))->toBeTrue()
+            ->and($doc->firstElement(['main', 'span'])?->isTag('span'))->toBeTrue()
+            ->and($doc->hasElement('DIV'))->toBeTrue()
+            ->and($doc->hasElement(['main', 'aside']))->toBeFalse()
+            ->and($groups)->toHaveKeys(['div', 'span', 'missing'])
+            ->and($groups['div'])->toHaveCount(2)
+            ->and($groups['span'])->toHaveCount(1)
+            ->and($groups['missing'])->toBe([]);
+    });
+
     it('can get all components', function (): void {
         $doc = $this->parse('<div></div> <x-alert /> <x-button></x-button>');
 

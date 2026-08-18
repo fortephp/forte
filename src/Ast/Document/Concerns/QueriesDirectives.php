@@ -12,16 +12,40 @@ use Illuminate\Support\LazyCollection;
 trait QueriesDirectives
 {
     /**
+     * Get standalone directives as a lazy, fluent collection, optionally by
+     * directive name.
+     *
+     * @param  string|array<string>|null  $names
+     * @return LazyCollection<int, DirectiveNode>
+     */
+    public function queryDirectives(string|array|null $names = null): LazyCollection
+    {
+        $names = is_string($names) ? [$names] : $names;
+
+        return $this->queryNodesOfType(
+            DirectiveNode::class,
+            function (DirectiveNode $node) use ($names): bool {
+                if ($node->getParent() instanceof DirectiveBlockNode) {
+                    return false;
+                }
+
+                if ($names === null) {
+                    return true;
+                }
+
+                return $node->isAny($names);
+            }
+        );
+    }
+
+    /**
      * @return LazyCollection<int, DirectiveNode>
      *
      * @internal
      */
     protected function directives(): LazyCollection
     {
-        return $this->queryNodesOfType(
-            DirectiveNode::class,
-            fn (DirectiveNode $n) => ! $n->getParent() instanceof DirectiveBlockNode
-        );
+        return $this->queryDirectives();
     }
 
     /**
@@ -35,13 +59,35 @@ trait QueriesDirectives
     }
 
     /**
+     * Get paired directives as a lazy, fluent collection, optionally by name.
+     *
+     * @param  string|array<string>|null  $names
+     * @return LazyCollection<int, DirectiveBlockNode>
+     */
+    public function queryBlockDirectives(string|array|null $names = null): LazyCollection
+    {
+        $names = is_string($names) ? [$names] : $names;
+
+        return $this->queryNodesOfType(
+            DirectiveBlockNode::class,
+            function (DirectiveBlockNode $node) use ($names): bool {
+                if ($names === null) {
+                    return true;
+                }
+
+                return $node->isAny($names);
+            }
+        );
+    }
+
+    /**
      * @return LazyCollection<int, DirectiveBlockNode>
      *
      * @internal
      */
     protected function blockDirectives(): LazyCollection
     {
-        return $this->queryNodesOfType(DirectiveBlockNode::class);
+        return $this->queryBlockDirectives();
     }
 
     /**
@@ -62,9 +108,7 @@ trait QueriesDirectives
     public function findDirectiveByName(string $name): ?DirectiveNode
     {
         /** @var DirectiveNode|null */
-        return $this->directives()
-            ->filter(fn (DirectiveNode $n) => $n->is($name))
-            ->first();
+        return $this->queryDirectives($name)->first();
     }
 
     /**
@@ -75,8 +119,7 @@ trait QueriesDirectives
      */
     public function findDirectivesByName(string $name): LazyCollection
     {
-        return $this->directives()
-            ->filter(fn (DirectiveNode $n) => $n->is($name));
+        return $this->queryDirectives($name);
     }
 
     /**
@@ -87,9 +130,7 @@ trait QueriesDirectives
     public function findBlockDirectiveByName(string $name): ?DirectiveBlockNode
     {
         /** @var DirectiveBlockNode|null */
-        return $this->blockDirectives()
-            ->filter(fn (DirectiveBlockNode $n) => $n->is($name))
-            ->first();
+        return $this->queryBlockDirectives($name)->first();
     }
 
     /**
@@ -100,7 +141,6 @@ trait QueriesDirectives
      */
     public function findBlockDirectivesByName(string $name): LazyCollection
     {
-        return $this->blockDirectives()
-            ->filter(fn (DirectiveBlockNode $n) => $n->is($name));
+        return $this->queryBlockDirectives($name);
     }
 }

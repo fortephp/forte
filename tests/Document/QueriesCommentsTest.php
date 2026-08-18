@@ -16,6 +16,14 @@ describe('Document Comments', function (): void {
             ->and($comments)->toBeInstanceOf(NodeCollection::class);
     });
 
+    it('offers lazy fluent comment collections', function (): void {
+        $doc = $this->parse('{{-- blade --}} <!-- html -->');
+
+        expect($doc->queryComments())->toHaveCount(2)
+            ->and($doc->queryBladeComments())->toHaveCount(1)
+            ->and($doc->queryHtmlComments())->toHaveCount(1);
+    });
+
     it('can get blade comments only', function (): void {
         $doc = $this->parse('{{-- blade --}} <!-- html --> {{-- another --}}');
 

@@ -13,13 +13,23 @@ use Illuminate\Support\LazyCollection;
 trait QueriesPhpBlocks
 {
     /**
+     * Get Blade PHP blocks as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, PhpBlockNode>
+     */
+    public function queryPhpBlocks(): LazyCollection
+    {
+        return $this->queryNodesOfType(PhpBlockNode::class);
+    }
+
+    /**
      * @return LazyCollection<int, PhpBlockNode>
      *
      * @internal
      */
     protected function phpBlocks(): LazyCollection
     {
-        return $this->queryNodesOfType(PhpBlockNode::class);
+        return $this->queryPhpBlocks();
     }
 
     /**
@@ -33,15 +43,23 @@ trait QueriesPhpBlocks
     }
 
     /**
-     * Get all PHP tag nodes (<?php ?>) as a lazy collection.
+     * Get all PHP tag nodes (<?php ?>) as a lazy, fluent collection.
      *
+     * @return LazyCollection<int, PhpTagNode>
+     */
+    public function queryPhpTags(): LazyCollection
+    {
+        return $this->queryNodesOfType(PhpTagNode::class);
+    }
+
+    /**
      * @return LazyCollection<int, PhpTagNode>
      *
      * @internal
      */
     protected function phpTags(): LazyCollection
     {
-        return $this->queryNodesOfType(PhpTagNode::class);
+        return $this->queryPhpTags();
     }
 
     /**
@@ -55,15 +73,23 @@ trait QueriesPhpBlocks
     }
 
     /**
-     * Get all text nodes as a lazy collection.
+     * Get all text nodes as a lazy, fluent collection.
      *
+     * @return LazyCollection<int, TextNode>
+     */
+    public function queryTextNodes(): LazyCollection
+    {
+        return $this->queryNodesOfType(TextNode::class);
+    }
+
+    /**
      * @return LazyCollection<int, TextNode>
      *
      * @internal
      */
     protected function text(): LazyCollection
     {
-        return $this->queryNodesOfType(TextNode::class);
+        return $this->queryTextNodes();
     }
 
     /**
