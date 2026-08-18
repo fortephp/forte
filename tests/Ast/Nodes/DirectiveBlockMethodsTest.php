@@ -13,6 +13,8 @@ describe('DirectiveBlockNode Methods', function (): void {
             expect($block)->toBeInstanceOf(DirectiveBlockNode::class)
                 ->and($block->isDirectiveNamed('if'))->toBeTrue()
                 ->and($block->isDirectiveNamed('IF'))->toBeTrue()
+                ->and($block->isAnyDirectiveNamed(['foreach', 'IF']))->toBeTrue()
+                ->and($block->isAny(['unless', 'i*']))->toBeTrue()
                 ->and($block->isDirectiveNamed('foreach'))->toBeFalse();
         });
     });

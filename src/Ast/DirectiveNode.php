@@ -19,6 +19,14 @@ class DirectiveNode extends Node
     use HasDirectiveName;
 
     /**
+     * Check if this directive has the given exact name.
+     */
+    public function isDirectiveNamed(string $name): bool
+    {
+        return $this->matchesDirectiveName($name);
+    }
+
+    /**
      * Get the directive arguments, if available.
      */
     public function arguments(): ?string
