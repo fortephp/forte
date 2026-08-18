@@ -62,10 +62,32 @@ describe('Element Parsing', function (): void {
         $el = $this->parseElement('<div class="test" id="main">');
 
         expect($el)->toBeInstanceOf(ElementNode::class)
-            ->and($el->attributes()->has('class'))->toBeTrue()
-            ->and($el->attributes()->has('id'))->toBeTrue()
-            ->and($el->attributes()->get('class')->valueText())->toBe('test')
-            ->and($el->attributes()->get('id')->valueText())->toBe('main');
+            ->and($el->hasAttribute('class'))->toBeTrue()
+            ->and($el->hasAnyAttribute(['missing', 'id']))->toBeTrue()
+            ->and($el->hasAllAttributes(['class', 'id']))->toBeTrue()
+            ->and($el->hasAllAttributes(['class', 'missing']))->toBeFalse()
+            ->and($el->attribute('class')?->valueText())->toBe('test')
+            ->and($el->attribute('id')?->valueText())->toBe('main');
+    });
+
+    it('offers exact case-insensitive tag and static attribute helpers', function (): void {
+        $el = $this->parseElement('<DIV title="A&amp;B" :class="$classes" data-id="{{ $id }}">');
+
+        expect($el->isTag('div'))->toBeTrue()
+            ->and($el->isTag(['span', 'DIV']))->toBeTrue()
+            ->and($el->isTag('span'))->toBeFalse()
+            ->and($el->isAny(['span', 'D*']))->toBeTrue()
+            ->and($el->staticAttributeValue('title'))->toBe('A&B')
+            ->and($el->staticAttributeValue('class'))->toBeNull()
+            ->and($el->staticAttributeValue('data-id'))->toBeNull();
+    });
+
+    it('returns the first duplicate attribute kept by HTML', function (): void {
+        $el = $this->parseElement('<div class="first" CLASS="ignored">');
+
+        expect($el->getAttributes())->toHaveCount(2)
+            ->and($el->attribute('class')?->decodedValueText())->toBe('first')
+            ->and($el->getAttribute('class'))->toBe('ignored');
     });
 
     it('exposes decoded static attribute values without losing source spelling', function (): void {

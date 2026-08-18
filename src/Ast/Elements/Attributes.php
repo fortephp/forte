@@ -116,6 +116,42 @@ class Attributes implements ArrayAccess, Countable, IteratorAggregate
     }
 
     /**
+     * Check whether at least one named attribute exists.
+     *
+     * @param  string|array<string>  $names
+     */
+    public function hasAny(string|array $names): bool
+    {
+        $names = is_string($names) ? [$names] : $names;
+
+        foreach ($names as $name) {
+            if ($this->has($name)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check whether every named attribute exists.
+     *
+     * @param  string|array<string>  $names
+     */
+    public function hasAll(string|array $names): bool
+    {
+        $names = is_string($names) ? [$names] : $names;
+
+        foreach ($names as $name) {
+            if (! $this->has($name)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Get the first attribute, optionally matching a callback.
      *
      * @template TDefault
@@ -426,8 +462,26 @@ class Attributes implements ArrayAccess, Countable, IteratorAggregate
     {
         $this->ensureLoaded();
 
-        return $this->filter(fn (Attribute $attr) => strcasecmp($attr->nameText(), $name) === 0
-        );
+        return $this->filter(fn (Attribute $attr) => $attr->isNamed($name));
+    }
+
+    /**
+     * Find the first attribute with the given name (case-insensitive).
+     *
+     * This models HTML's effective first-duplicate behavior without changing
+     * the historical find()/get() lookup behavior.
+     */
+    public function firstNamed(string $name): ?Attribute
+    {
+        $this->ensureLoaded();
+
+        foreach ($this->items as $attribute) {
+            if (! $attribute->isBladeConstruct() && $attribute->isNamed($name)) {
+                return $attribute;
+            }
+        }
+
+        return null;
     }
 
     /**

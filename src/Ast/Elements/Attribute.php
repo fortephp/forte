@@ -14,6 +14,7 @@ use Forte\Parser\NodeKind;
 use Forte\Parser\NodeKindRegistry;
 use Forte\Parser\TreeBuilder;
 use Forte\Support\HtmlCharacterReferences;
+use Forte\Support\HtmlWhitespace;
 use JsonSerializable;
 use RuntimeException;
 use Stringable;
@@ -215,6 +216,71 @@ class Attribute implements JsonSerializable, Stringable
     }
 
     /**
+     * Get the browser-decoded value when the attribute is fully static.
+     *
+     * Dynamic attributes return null because their runtime value cannot be
+     * determined from the template alone.
+     */
+    public function staticValue(): ?string
+    {
+        return $this->isDynamic() ? null : $this->decodedValueText();
+    }
+
+    /**
+     * Get the lower-cased browser-decoded value when fully static.
+     */
+    public function staticValueLower(): ?string
+    {
+        $value = $this->staticValue();
+
+        return $value !== null ? strtolower($value) : null;
+    }
+
+    /**
+     * Get the browser-decoded value as HTML space-separated tokens.
+     *
+     * @return list<string>
+     */
+    public function tokens(): array
+    {
+        return HtmlWhitespace::split($this->decodedValueText() ?? '');
+    }
+
+    /**
+     * Get lower-cased HTML space-separated tokens.
+     *
+     * @return list<string>
+     */
+    public function tokensLower(): array
+    {
+        return array_map(strtolower(...), $this->tokens());
+    }
+
+    /**
+     * Get HTML space-separated tokens when the value is fully static.
+     *
+     * @return list<string>|null
+     */
+    public function staticTokens(): ?array
+    {
+        $value = $this->staticValue();
+
+        return $value !== null ? HtmlWhitespace::split($value) : null;
+    }
+
+    /**
+     * Get lower-cased HTML space-separated tokens when fully static.
+     *
+     * @return list<string>|null
+     */
+    public function staticTokensLower(): ?array
+    {
+        $tokens = $this->staticTokens();
+
+        return $tokens !== null ? array_map(strtolower(...), $tokens) : null;
+    }
+
+    /**
      * Get the attribute value object for complex value support.
      */
     public function value(): ?AttributeValue
@@ -383,6 +449,50 @@ class Attribute implements JsonSerializable, Stringable
     }
 
     /**
+     * Check whether the attribute's presence or value depends on runtime
+     * template evaluation.
+     */
+    public function isDynamic(): bool
+    {
+        return $this->isBound()
+            || $this->isVariableShorthand()
+            || $this->isExpression()
+            || $this->hasComplexName()
+            || $this->hasComplexValue();
+    }
+
+    /**
+     * Check whether this literal attribute is guaranteed to be present.
+     *
+     * Its value may still contain runtime output; this only describes the
+     * presence of the attribute itself in the rendered opening tag.
+     */
+    public function isUnconditionallyPresent(): bool
+    {
+        return ! $this->isBladeConstruct()
+            && ! $this->isBound()
+            && ! $this->isVariableShorthand()
+            && ! $this->isExpression()
+            && ! $this->hasComplexName();
+    }
+
+    /**
+     * Check whether the attribute has one of the given names.
+     *
+     * @param  string|array<string>  $names
+     */
+    public function isNamed(string|array $names): bool
+    {
+        foreach ((array) $names as $name) {
+            if (strcasecmp($this->nameText(), $name) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if this is an escaped attribute.
      *
      * Example: <div ::class=""></div>
@@ -544,6 +654,47 @@ class Attribute implements JsonSerializable, Stringable
     public function getInternalEchoes(): array
     {
         return iterator_to_array($this->internalEchoes());
+    }
+
+    /**
+     * Get echoes that Blade will evaluate, excluding source-escaped `@{{ ... }}`
+     * constructs.
+     *
+     * @return iterable<EchoNode>
+     */
+    public function renderedEchoes(): iterable
+    {
+        $source = $this->document->source();
+
+        foreach ($this->internalEchoes() as $echo) {
+            $offset = $echo->startOffset();
+
+            if ($offset >= 0 && ($offset === 0 || ($source[$offset - 1] ?? '') !== '@')) {
+                yield $echo;
+            }
+        }
+    }
+
+    /**
+     * Get the first echo Blade will evaluate from this attribute.
+     */
+    public function firstRenderedEcho(): ?EchoNode
+    {
+        foreach ($this->renderedEchoes() as $echo) {
+            return $echo;
+        }
+
+        return null;
+    }
+
+    /**
+     * Get rendered echoes as an array.
+     *
+     * @return array<EchoNode>
+     */
+    public function getRenderedEchoes(): array
+    {
+        return iterator_to_array($this->renderedEchoes(), false);
     }
 
     /**

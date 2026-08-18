@@ -28,6 +28,14 @@ describe('Attributes Collection Methods', function (): void {
             expect($el->attributes()->find('class'))->not()->toBeNull()
                 ->and($el->attributes()->find('CLASS'))->not()->toBeNull();
         });
+
+        it('preserves historical last-match lookup while exposing the first HTML attribute', function (): void {
+            $el = $this->parseElement('<div class="first" CLASS="last"></div>');
+
+            expect($el->attributes()->find('class')?->valueText())->toBe('last')
+                ->and($el->attributes()->get('class')?->valueText())->toBe('last')
+                ->and($el->attributes()->firstNamed('class')?->valueText())->toBe('first');
+        });
     });
 
     describe('exceptNames()', function (): void {
@@ -159,6 +167,51 @@ describe('Attributes Collection Methods', function (): void {
 });
 
 describe('Attribute Methods', function (): void {
+    describe('semantic value and presence helpers', function (): void {
+        it('owns dynamic and static-value semantics on the attribute', function (): void {
+            $el = $this->parseElement('<div TITLE="A&amp;B" data-id="{{ $id }}" :class="$classes" disabled></div>');
+            $title = $el->attribute('title');
+            $dataId = $el->attribute('data-id');
+            $class = $el->attribute('class');
+            $disabled = $el->attribute('disabled');
+
+            expect($title?->isNamed(['id', 'title']))->toBeTrue()
+                ->and($title?->isDynamic())->toBeFalse()
+                ->and($title?->staticValue())->toBe('A&B')
+                ->and($title?->staticValueLower())->toBe('a&b')
+                ->and($title?->tokens())->toBe(['A&B'])
+                ->and($title?->isUnconditionallyPresent())->toBeTrue()
+                ->and($dataId?->isDynamic())->toBeTrue()
+                ->and($dataId?->staticValue())->toBeNull()
+                ->and($dataId?->isUnconditionallyPresent())->toBeTrue()
+                ->and($class?->isDynamic())->toBeTrue()
+                ->and($class?->isUnconditionallyPresent())->toBeFalse()
+                ->and($disabled?->staticValue())->toBeNull()
+                ->and($disabled?->isUnconditionallyPresent())->toBeTrue();
+        });
+
+        it('uses HTML whitespace for token-list helpers', function (): void {
+            $el = $this->parseElement("<div role=\"button\tCHECKBOX\" class=\"foo\x0Bbar\"></div>");
+
+            expect($el->attribute('role')?->tokensLower())->toBe(['button', 'checkbox'])
+                ->and($el->staticAttributeTokensLower('role'))->toBe(['button', 'checkbox'])
+                ->and($el->attributeTokens('class'))->toBe(["foo\x0Bbar"])
+                ->and($el->attributeTokens('missing'))->toBe([])
+                ->and($el->staticAttributeTokens('missing'))->toBeNull();
+        });
+
+        it('keeps element conveniences as null-safe attribute proxies', function (): void {
+            $el = $this->parseElement('<div title="A&amp;B" data-id="{{ $id }}"></div>');
+
+            expect($el->staticAttributeValue('title'))->toBe($el->attribute('title')?->staticValue())
+                ->and($el->staticAttributeValueLower('title'))->toBe($el->attribute('title')?->staticValueLower())
+                ->and($el->attributeIsDynamic('data-id'))->toBe($el->attribute('data-id')?->isDynamic())
+                ->and($el->hasUnconditionallyPresentAttribute('data-id'))->toBe($el->attribute('data-id')?->isUnconditionallyPresent())
+                ->and($el->attributeIsDynamic('missing'))->toBeFalse()
+                ->and($el->staticAttributeValue('missing'))->toBeNull();
+        });
+    });
+
     describe('hasComplexValue()', function (): void {
         it('returns true for interpolated values', function (): void {
             $el = $this->parseElement('<div class="foo-{{ $bar }}"></div>');
