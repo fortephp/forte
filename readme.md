@@ -49,15 +49,38 @@ Every mutation returns a new `Document` instance. Safe to hold references, chain
 Walk the tree, find nodes by predicate, or query with XPath 1.0. Blade constructs map to namespaced elements (`forte:if`, `forte:echo`) for XPath queries.
 
 ```php
-// Walk all nodes
-$doc->walk(fn ($node) => /* ... */);
+use Forte\Ast\TraversalOptions;
 
-// Find first match
-$echo = $doc->find(fn ($n) => $n instanceof EchoNode);
+// Lazy, fluent collections with optional name filters
+$forms = $doc->queryElements('form');
+$conditionals = $doc->queryBlockDirectives(['if', 'unless']);
+$components = $doc->queryComponents(['x-alert', 'livewire:*']);
+
+// Fast exact lookups and convenient existence checks
+$navigation = $doc->elementById('primary-navigation');
+$hasHead = $doc->hasElement('head');
+
+// Attribute semantics live on Attribute; ElementNode provides null-safe proxies
+$form = $doc->firstElement('form');
+$method = $form?->attribute('method');
+$isDynamic = $method?->isDynamic() ?? false;
+$staticMethod = $form?->staticAttributeValueLower('method');
+$classes = $form?->attributeTokens('class') ?? [];
+
+// Navigate relationships without rebuilding ancestor/descendant loops
+$owner = $navigation?->closestElement('header');
+$links = $navigation?->descendantElements('a');
+
+// Include attribute/tag-name internals when a deep semantic scan is needed
+$allEchoes = $doc->allEchoes(TraversalOptions::deep());
 
 // XPath
 $doc->xpath('//forte:if')->get();
 ```
+
+The original `getElements()`, `findElementsByName()`, magic collection properties,
+and other released query methods remain available. The `query*` methods add
+Laravel-style lazy collections without changing those existing contracts.
 
 ### Rewriting
 
