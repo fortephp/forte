@@ -1,5 +1,6 @@
 {
     "name": "fortephp/forte",
+    "description": "A fault-tolerant Blade template parser and AST toolkit.",
     "type": "library",
     "license": "MIT",
     "keywords": [
