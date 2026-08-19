@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use Forte\Ast\Document\Document;
 use Forte\Lexer\Lexer;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\NodeKind;
+use Forte\Parser\ParserOptions;
 use Forte\Parser\TreeBuilder;
 
 describe('Stack Depth Limits', function (): void {
@@ -56,6 +58,28 @@ describe('Stack Depth Limits', function (): void {
 
             $parsed = $builder->build();
             expect($parsed['nodes'])->not->toBeEmpty();
+        });
+
+        test('document parsing applies custom parser option depth limits', function (): void {
+            $html = str_repeat('<div>', 20).'content'.str_repeat('</div>', 20);
+            $options = ParserOptions::defaults()->depthLimits(elements: 10);
+
+            expect(fn () => Document::parse($html, $options))
+                ->toThrow(RuntimeException::class, 'Maximum element nesting depth (10) exceeded.');
+        });
+
+        test('parser option merging carries explicit depth limits', function (): void {
+            $base = ParserOptions::defaults();
+            $custom = ParserOptions::make()->depthLimits(elements: 20, directives: 21, conditions: 22);
+
+            $base->merge($custom);
+
+            expect($base->hasCustomDepthLimits())->toBeTrue()
+                ->and($base->getDepthLimits())->toBe([
+                    'elements' => 20,
+                    'directives' => 21,
+                    'conditions' => 22,
+                ]);
         });
     });
 
