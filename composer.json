@@ -36,6 +36,23 @@
             "Forte\\Tests\\": "tests/"
         }
     },
+    "archive": {
+        "exclude": [
+            "/.claude",
+            "/.github",
+            "/.idea",
+            "/.phpstan.cache",
+            "/.phpunit.cache",
+            "/.phpunit.result.cache",
+            "/composer.lock",
+            "/phpstan.neon",
+            "/phpunit.dist.xml",
+            "/phpunit.xml",
+            "/rector.php",
+            "/tests",
+            "/vendor"
+        ]
+    },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
