@@ -22,12 +22,12 @@ trait ProcessesElements
 
         $this->pos++;
 
-        if ($startPos >= $tokenCount || $tokens[$startPos]['type'] !== TokenType::LessThan) {
+        if ($startPos >= $tokenCount || $tokens[$startPos]->type !== TokenType::LessThan) {
             return;
         }
 
         // Closing tag?
-        if ($this->pos < $tokenCount && $tokens[$this->pos]['type'] === TokenType::Slash) {
+        if ($this->pos < $tokenCount && $tokens[$this->pos]->type === TokenType::Slash) {
             $this->processElementEnd();
 
             return;
@@ -74,7 +74,7 @@ trait ProcessesElements
         $this->buildElementNameParts($tagNameStart, $tagNameCount, $elementNameIdx);
 
         // Consume TsxGenericType, if present
-        if ($this->pos < $tokenCount && $tokens[$this->pos]['type'] === TokenType::TsxGenericType) {
+        if ($this->pos < $tokenCount && $tokens[$this->pos]->type === TokenType::TsxGenericType) {
             $this->pos++;
         }
 
@@ -84,13 +84,13 @@ trait ProcessesElements
         // Self-closing detection
         $selfClosing = false;
         $syntheticClose = false;
-        if ($this->pos < $tokenCount && $tokens[$this->pos]['type'] === TokenType::Slash) {
+        if ($this->pos < $tokenCount && $tokens[$this->pos]->type === TokenType::Slash) {
             $this->pos++;
             $selfClosing = true;
         }
 
         if ($this->pos < $tokenCount) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
             if ($type === TokenType::GreaterThan) {
                 $this->pos++;
             } elseif ($type === TokenType::SyntheticClose) {
@@ -100,14 +100,14 @@ trait ProcessesElements
         }
 
         // Update element metadata
-        $this->nodes[$elementIdx]['tokenCount'] = $this->pos - $startPos;
-        $this->nodes[$elementIdx]['genericOffset'] = $genericOffset > 0 ? $genericOffset + 1 : 0;
-        $this->nodes[$elementIdx]['data'] = $selfClosing ? 1 : 0;
+        $this->nodes[$elementIdx]->tokenCount = $this->pos - $startPos;
+        $this->nodes[$elementIdx]->genericOffset = $genericOffset > 0 ? $genericOffset + 1 : 0;
+        $this->nodes[$elementIdx]->data = $selfClosing ? 1 : 0;
 
         // Decide if an element stays open
         $shouldStayOpen = ! $selfClosing;
         if ($syntheticClose && $shouldStayOpen) {
-            if ($this->pos < $tokenCount && $tokens[$this->pos]['type'] === TokenType::LessThan) {
+            if ($this->pos < $tokenCount && $tokens[$this->pos]->type === TokenType::LessThan) {
                 $hasAttributes = $this->hasAttributeTokens($startPos, $this->pos);
                 if (! $hasAttributes) {
                     $shouldStayOpen = false;
@@ -151,8 +151,8 @@ trait ProcessesElements
 
         // Skip to ">" or SyntheticClose
         while ($this->pos < $tokenCount &&
-            $tokens[$this->pos]['type'] !== TokenType::GreaterThan &&
-            $tokens[$this->pos]['type'] !== TokenType::SyntheticClose) {
+            $tokens[$this->pos]->type !== TokenType::GreaterThan &&
+            $tokens[$this->pos]->type !== TokenType::SyntheticClose) {
             $this->pos++;
         }
         if ($this->pos < $tokenCount) {
@@ -192,7 +192,7 @@ trait ProcessesElements
         // Fallback search (dynamic tags / missed)
         for ($i = count($this->openElements) - 1; $i >= $searchLimit; $i--) {
             $elementIdx = $this->openElements[$i];
-            if ($this->nodes[$elementIdx]['kind'] === NodeKind::DirectiveBlock) {
+            if ($this->nodes[$elementIdx]->kind === NodeKind::DirectiveBlock) {
                 continue;
             }
 
@@ -210,7 +210,7 @@ trait ProcessesElements
         if ($foundMatch) {
             $elementIdx = $this->openElements[$matchedOpenElementsIndex];
             $endPos = $this->pos; // After closing token
-            $this->nodes[$elementIdx]['tokenCount'] = $endPos - $this->nodes[$elementIdx]['tokenStart'];
+            $this->nodes[$elementIdx]->tokenCount = $endPos - $this->nodes[$elementIdx]->tokenStart;
 
             // ClosingElementName node
             $closingNameIdx = $this->createAndLinkClosingNameNode(
@@ -248,7 +248,7 @@ trait ProcessesElements
         $limit = min($endPos, $this->tokenTotal);
 
         for ($i = $startPos; $i < $limit; $i++) {
-            $type = $tokens[$i]['type'];
+            $type = $tokens[$i]->type;
             if ($type === TokenType::AttributeName ||
                 $type === TokenType::Equals ||
                 $type === TokenType::Quote ||
@@ -283,20 +283,20 @@ trait ProcessesElements
     private function createAndLinkClosingNameNode(int $parentIdx, int $tokenStart, int $tokenCount): int
     {
         $idx = $this->nodeCount++;
-        $this->nodes[$idx] = $this->createNode(
+        $this->nodes[$idx] = $this->compactNode($this->createNode(
             kind: NodeKind::ClosingElementName,
             parent: $parentIdx,
             tokenStart: $tokenStart,
             tokenCount: $tokenCount
-        );
+        ));
 
-        $lastChild = $this->nodes[$parentIdx]['lastChild'];
+        $lastChild = $this->nodes[$parentIdx]->lastChild;
         if ($lastChild !== -1) {
-            $this->nodes[$lastChild]['nextSibling'] = $idx;
+            $this->nodes[$lastChild]->nextSibling = $idx;
         } else {
-            $this->nodes[$parentIdx]['firstChild'] = $idx;
+            $this->nodes[$parentIdx]->firstChild = $idx;
         }
-        $this->nodes[$parentIdx]['lastChild'] = $idx;
+        $this->nodes[$parentIdx]->lastChild = $idx;
 
         return $idx;
     }

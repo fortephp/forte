@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Parser\Directives;
 
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Support\StringInterner;
 
@@ -30,7 +31,7 @@ class DirectiveTokenIndex
     private array $nameSetCache = [];
 
     /**
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      * @param  string  $source  The source code for extracting directive names
      */
     public function __construct(array $tokens, string $source)
@@ -41,16 +42,23 @@ class DirectiveTokenIndex
     /**
      * Build the index by scanning all tokens at once.
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      */
     protected function build(array $tokens, string $source): void
     {
         foreach ($tokens as $idx => $token) {
-            if (! $this->isDirectiveToken($token)) {
+            if ($token instanceof TokenRecord) {
+                if ($token->type !== TokenType::Directive) {
+                    continue;
+                }
+
+                $name = $this->extractNameFromOffsets($token->start, $token->end, $source);
+            } elseif ($this->isDirectiveToken($token)) {
+                $name = $this->extractName($token, $source);
+            } else {
                 continue;
             }
 
-            $name = $this->extractName($token, $source);
             $this->allPositions[] = $idx;
             $this->allNames[] = $name;
             $this->byName[$name][] = $idx;
@@ -64,7 +72,12 @@ class DirectiveTokenIndex
      */
     protected function extractName(array $token, string $source): string
     {
-        $text = substr($source, $token['start'], $token['end'] - $token['start']);
+        return $this->extractNameFromOffsets($token['start'], $token['end'], $source);
+    }
+
+    private function extractNameFromOffsets(int $start, int $end, string $source): string
+    {
+        $text = substr($source, $start, $end - $start);
 
         if (str_starts_with($text, '@')) {
             $text = substr($text, 1);

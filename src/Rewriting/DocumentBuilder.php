@@ -20,7 +20,7 @@ class DocumentBuilder
 {
     private const NONE = -1;
 
-    /** @var array<int, array<string, mixed>> */
+    /** @var array<int, FlatNode> */
     private array $nodes = [];
 
     private int $nodeCount;

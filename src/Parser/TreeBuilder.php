@@ -6,6 +6,8 @@ namespace Forte\Parser;
 
 use Forte\Ast\Elements\VoidElements;
 use Forte\Extensions\AttributeExtension;
+use Forte\Internal\FlatNodeRecord;
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\Concerns\ProcessesComments;
 use Forte\Parser\Concerns\ProcessesConditionalPairingDirectives;
@@ -47,8 +49,11 @@ class TreeBuilder
     use ProcessesPhp;
     use ProcessesSwitchDirectives;
 
-    /** @var array<int, FlatNode> */
+    /** @var array<int, FlatNodeRecord> */
     private array $nodes = [];
+
+    /** @var array<int, TokenRecord> */
+    private readonly array $tokens;
 
     private int $nodeCount = 0;
 
@@ -106,12 +111,18 @@ class TreeBuilder
 
     private int $maxConditionDepth = self::DEFAULT_MAX_CONDITION_DEPTH;
 
-    /** @param  array<int, array{type: int, start: int, end: int}>  $tokens */
+    /** @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens */
     public function __construct(
-        private readonly array $tokens,
+        array $tokens,
         private readonly string $source,
         ?Directives $directives = null
     ) {
+        $this->tokens = array_map(
+            static fn (array|TokenRecord $token): TokenRecord => $token instanceof TokenRecord
+                ? $token
+                : TokenRecord::fromArray($token),
+            $tokens
+        );
         $this->optionalTagConfig = new OptionalTagConfig;
         $this->optionalTagHandler = new OptionalTagHandler($this->optionalTagConfig);
         $this->directives = $directives ?? Directives::withDefaults();
@@ -178,12 +189,41 @@ class TreeBuilder
      */
     public function build(): array
     {
-        $this->nodes[] = $this->createNode(
+        $this->buildTree();
+
+        return [
+            'nodes' => array_map(static fn (FlatNodeRecord $node): array => $node->toArray(), $this->nodes),
+            'source' => $this->source,
+            'tokens' => array_map(static fn (TokenRecord $token): array => $token->toArray(), $this->tokens),
+        ];
+    }
+
+    /**
+     * Build a tree without expanding its internal records.
+     *
+     * @internal
+     *
+     * @return array{nodes: array<int, FlatNodeRecord>, source: string, tokens: array<int, TokenRecord>}
+     */
+    public function buildCompact(): array
+    {
+        $this->buildTree();
+
+        return [
+            'nodes' => $this->nodes,
+            'source' => $this->source,
+            'tokens' => $this->tokens,
+        ];
+    }
+
+    private function buildTree(): void
+    {
+        $this->nodes[] = $this->compactNode($this->createNode(
             kind: NodeKind::Root,
             parent: self::NONE,
             tokenStart: 0,
             tokenCount: 0
-        );
+        ));
         $this->nodeCount = 1;
         $this->openElements[] = 0;
 
@@ -194,11 +234,6 @@ class TreeBuilder
         $this->closeRemainingDirectives();
         $this->closeRemainingElements();
 
-        return [
-            'nodes' => $this->nodes,
-            'source' => $this->source,
-            'tokens' => $this->tokens,
-        ];
     }
 
     protected function processToken(): void
@@ -212,7 +247,7 @@ class TreeBuilder
             }
         }
 
-        $tokenType = $this->tokens[$this->pos]['type'];
+        $tokenType = $this->tokens[$this->pos]->type;
 
         match ($tokenType) {
             TokenType::LessThan => $this->processElementStart(),
@@ -293,6 +328,12 @@ class TreeBuilder
         ];
     }
 
+    /** @phpstan-param FlatNode $node */
+    private function compactNode(array $node): FlatNodeRecord
+    {
+        return FlatNodeRecord::fromArray($node);
+    }
+
     protected function createBlockNode(int $startPos, int $endTokenType, int $nodeKind): void
     {
         $tokens = $this->tokens;
@@ -300,7 +341,7 @@ class TreeBuilder
         $hasClosing = false;
 
         while ($endPos < $this->tokenTotal) {
-            if ($tokens[$endPos]['type'] === $endTokenType) {
+            if ($tokens[$endPos]->type === $endTokenType) {
                 $hasClosing = true;
                 $endPos++;
                 break;
@@ -329,18 +370,18 @@ class TreeBuilder
         $node['parent'] = $parentIdx;
 
         $nodeIdx = $this->nodeCount++;
-        $this->nodes[$nodeIdx] = $node;
+        $this->nodes[$nodeIdx] = $this->compactNode($node);
 
         $parent = &$this->nodes[$parentIdx];
 
-        if ($parent['firstChild'] === self::NONE) {
-            $parent['firstChild'] = $nodeIdx;
+        if ($parent->firstChild === self::NONE) {
+            $parent->firstChild = $nodeIdx;
         } else {
-            $lastChildIdx = $parent['lastChild'];
-            $this->nodes[$lastChildIdx]['nextSibling'] = $nodeIdx;
+            $lastChildIdx = $parent->lastChild;
+            $this->nodes[$lastChildIdx]->nextSibling = $nodeIdx;
         }
 
-        $parent['lastChild'] = $nodeIdx;
+        $parent->lastChild = $nodeIdx;
 
         return $nodeIdx;
     }
@@ -382,17 +423,17 @@ class TreeBuilder
         $parentIdx = $this->getCurrentParent();
         $parent = $this->nodes[$parentIdx];
 
-        if ($parent['lastChild'] !== self::NONE) {
-            $lastChildIdx = $parent['lastChild'];
-            if ($this->nodes[$lastChildIdx]['kind'] === NodeKind::Text) {
-                $lastStart = $this->nodes[$lastChildIdx]['tokenStart'];
-                $lastCount = $this->nodes[$lastChildIdx]['tokenCount'];
+        if ($parent->lastChild !== self::NONE) {
+            $lastChildIdx = $parent->lastChild;
+            if ($this->nodes[$lastChildIdx]->kind === NodeKind::Text) {
+                $lastStart = $this->nodes[$lastChildIdx]->tokenStart;
+                $lastCount = $this->nodes[$lastChildIdx]->tokenCount;
                 $expectedNextToken = $lastStart + $lastCount;
 
                 // Only merge adjacent text token spans; gaps can appear when
                 // malformed input emits skipped structural tokens.
                 if ($expectedNextToken === $this->pos) {
-                    $this->nodes[$lastChildIdx]['tokenCount']++;
+                    $this->nodes[$lastChildIdx]->tokenCount++;
                     $this->pos++;
 
                     return;
@@ -489,7 +530,7 @@ class TreeBuilder
 
         $createdNodes = [];
         for ($i = $startNodeCount; $i < $this->nodeCount; $i++) {
-            if ($this->nodes[$i]['parent'] === $parentIdx) {
+            if ($this->nodes[$i]->parent === $parentIdx) {
                 $createdNodes[] = $i;
             }
         }
@@ -519,7 +560,7 @@ class TreeBuilder
 
         try {
             while ($this->pos < $this->tokenTotal) {
-                $tokenType = $this->tokens[$this->pos]['type'];
+                $tokenType = $this->tokens[$this->pos]->type;
 
                 if (isset($sentinelLookup[$tokenType])) {
                     $insideBlock = ! empty($this->openDirectives) || ! empty($this->openConditions);
@@ -613,7 +654,7 @@ class TreeBuilder
      */
     public function getCurrentToken(): ?array
     {
-        return $this->tokens[$this->pos] ?? null;
+        return isset($this->tokens[$this->pos]) ? $this->tokens[$this->pos]->toArray() : null;
     }
 
     /**
@@ -621,7 +662,9 @@ class TreeBuilder
      */
     public function peekToken(int $offset = 0): ?array
     {
-        return $this->tokens[$this->pos + $offset] ?? null;
+        $index = $this->pos + $offset;
+
+        return isset($this->tokens[$index]) ? $this->tokens[$index]->toArray() : null;
     }
 
     public function source(): string
@@ -648,7 +691,7 @@ class TreeBuilder
             data: $data
         );
 
-        $this->nodes[] = $node;
+        $this->nodes[] = $this->compactNode($node);
         $index = $this->nodeCount;
         $this->nodeCount++;
 
@@ -659,16 +702,16 @@ class TreeBuilder
     {
         $parentIdx = $this->getCurrentParent();
 
-        $this->nodes[$nodeIndex]['parent'] = $parentIdx;
+        $this->nodes[$nodeIndex]->parent = $parentIdx;
 
         $parentNode = $this->nodes[$parentIdx];
-        if ($parentNode['firstChild'] === self::NONE) {
-            $this->nodes[$parentIdx]['firstChild'] = $nodeIndex;
-            $this->nodes[$parentIdx]['lastChild'] = $nodeIndex;
+        if ($parentNode->firstChild === self::NONE) {
+            $this->nodes[$parentIdx]->firstChild = $nodeIndex;
+            $this->nodes[$parentIdx]->lastChild = $nodeIndex;
         } else {
-            $lastChild = $parentNode['lastChild'];
-            $this->nodes[$lastChild]['nextSibling'] = $nodeIndex;
-            $this->nodes[$parentIdx]['lastChild'] = $nodeIndex;
+            $lastChild = $parentNode->lastChild;
+            $this->nodes[$lastChild]->nextSibling = $nodeIndex;
+            $this->nodes[$parentIdx]->lastChild = $nodeIndex;
         }
     }
 
@@ -677,9 +720,9 @@ class TreeBuilder
      */
     public function linkAsFirstChild(int $parentIdx, int $childIdx): void
     {
-        $this->nodes[$childIdx]['parent'] = $parentIdx;
-        $this->nodes[$parentIdx]['firstChild'] = $childIdx;
-        $this->nodes[$parentIdx]['lastChild'] = $childIdx;
+        $this->nodes[$childIdx]->parent = $parentIdx;
+        $this->nodes[$parentIdx]->firstChild = $childIdx;
+        $this->nodes[$parentIdx]->lastChild = $childIdx;
     }
 
     /**
@@ -687,9 +730,9 @@ class TreeBuilder
      */
     public function linkAsSibling(int $prevIdx, int $nextIdx, int $parentIdx): void
     {
-        $this->nodes[$nextIdx]['parent'] = $parentIdx;
-        $this->nodes[$prevIdx]['nextSibling'] = $nextIdx;
-        $this->nodes[$parentIdx]['lastChild'] = $nextIdx;
+        $this->nodes[$nextIdx]->parent = $parentIdx;
+        $this->nodes[$prevIdx]->nextSibling = $nextIdx;
+        $this->nodes[$parentIdx]->lastChild = $nextIdx;
     }
 
     /**
@@ -698,14 +741,14 @@ class TreeBuilder
     protected function createFirstChild(int $parentIdx, int $kind, int $tokenStart, int $tokenCount): int
     {
         $childIdx = $this->nodeCount++;
-        $this->nodes[$childIdx] = $this->createNode(
+        $this->nodes[$childIdx] = $this->compactNode($this->createNode(
             kind: $kind,
             parent: $parentIdx,
             tokenStart: $tokenStart,
             tokenCount: $tokenCount
-        );
-        $this->nodes[$parentIdx]['firstChild'] = $childIdx;
-        $this->nodes[$parentIdx]['lastChild'] = $childIdx;
+        ));
+        $this->nodes[$parentIdx]->firstChild = $childIdx;
+        $this->nodes[$parentIdx]->lastChild = $childIdx;
 
         return $childIdx;
     }
@@ -716,14 +759,14 @@ class TreeBuilder
     protected function createSiblingChild(int $prevSiblingIdx, int $parentIdx, int $kind, int $tokenStart, int $tokenCount): int
     {
         $childIdx = $this->nodeCount++;
-        $this->nodes[$childIdx] = $this->createNode(
+        $this->nodes[$childIdx] = $this->compactNode($this->createNode(
             kind: $kind,
             parent: $parentIdx,
             tokenStart: $tokenStart,
             tokenCount: $tokenCount
-        );
-        $this->nodes[$prevSiblingIdx]['nextSibling'] = $childIdx;
-        $this->nodes[$parentIdx]['lastChild'] = $childIdx;
+        ));
+        $this->nodes[$prevSiblingIdx]->nextSibling = $childIdx;
+        $this->nodes[$parentIdx]->lastChild = $childIdx;
 
         return $childIdx;
     }

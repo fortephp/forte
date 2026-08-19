@@ -105,7 +105,7 @@ trait ManagesElementClosing
     public function hasSyntheticClosing(): bool
     {
         $flat = $this->flat();
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         $tokenStart = $flat['tokenStart'];
         $tokenEnd = $tokenStart + $flat['tokenCount'];

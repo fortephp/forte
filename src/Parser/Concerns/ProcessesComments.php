@@ -39,7 +39,7 @@ trait ProcessesComments
         $hasClosing = false;
 
         while ($endPos < count($this->tokens)) {
-            if ($this->tokens[$endPos]['type'] === TokenType::ConditionalCommentEnd) {
+            if ($this->tokens[$endPos]->type === TokenType::ConditionalCommentEnd) {
                 $hasClosing = true;
                 break;
             }

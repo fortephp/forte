@@ -28,6 +28,8 @@ use Forte\Ast\TextNode;
 use Forte\Ast\VerbatimNode;
 use Forte\Ast\XmlDeclarationNode;
 use Forte\Components\ComponentManager;
+use Forte\Internal\FlatNodeRecord;
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\Directives\Directives;
 use Forte\Parser\NodeKind;
@@ -52,7 +54,7 @@ trait ManagesAst
             throw new OutOfBoundsException("Node index {$index} does not exist");
         }
 
-        return $this->nodeCache[$index] = $this->createNodeWrapper($index, $this->nodes[$index]);
+        return $this->nodeCache[$index] = $this->createNodeWrapper($index, $this->nodes[$index]->toArray());
     }
 
     /**
@@ -184,6 +186,14 @@ trait ManagesAst
      */
     public function getFlatNode(int $index): array
     {
+        return $this->nodes[$index]->toArray();
+    }
+
+    /**
+     * @internal
+     */
+    public function getFlatNodeRecord(int $index): FlatNodeRecord
+    {
         return $this->nodes[$index];
     }
 
@@ -200,7 +210,7 @@ trait ManagesAst
             throw new OutOfBoundsException("Token index {$index} is out of bounds (0-".(count($this->tokens) - 1).')');
         }
 
-        return $this->tokens[$index];
+        return $this->tokens[$index]->toArray();
     }
 
     /**
@@ -234,6 +244,16 @@ trait ManagesAst
      */
     public function getTokens(): array
     {
+        return array_map(static fn (TokenRecord $token): array => $token->toArray(), $this->tokens);
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<int, TokenRecord>
+     */
+    public function getTokenRecords(): array
+    {
         return $this->tokens;
     }
 
@@ -244,7 +264,7 @@ trait ManagesAst
      */
     public function getNodes(): array
     {
-        return $this->nodes;
+        return array_map(static fn (FlatNodeRecord $node): array => $node->toArray(), $this->nodes);
     }
 
     /**

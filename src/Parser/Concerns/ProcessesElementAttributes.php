@@ -32,7 +32,7 @@ trait ProcessesElementAttributes
 
         try {
             while ($this->pos < $attrEnd) {
-                $type = $this->tokens[$this->pos]['type'];
+                $type = $this->tokens[$this->pos]->type;
 
                 if ($type === TokenType::Whitespace) {
                     $this->addChild($this->createNode(
@@ -100,7 +100,7 @@ trait ProcessesElementAttributes
             $this->popIfTop($frame['blockIdx']);
 
             $blockIdx = $frame['blockIdx'];
-            $this->nodes[$blockIdx]['tokenCount'] = $this->pos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->nodes[$blockIdx]->tokenCount = $this->pos - $this->nodes[$blockIdx]->tokenStart;
         }
 
         while (! empty($this->openDirectives)) {
@@ -109,7 +109,7 @@ trait ProcessesElementAttributes
             $this->popIfTop($frame['blockIdx']);
 
             $blockIdx = $frame['blockIdx'];
-            $this->nodes[$blockIdx]['tokenCount'] = $this->pos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->nodes[$blockIdx]->tokenCount = $this->pos - $this->nodes[$blockIdx]->tokenStart;
         }
     }
 
@@ -135,12 +135,12 @@ trait ProcessesElementAttributes
         $i = $startPos;
 
         // Skip opening quote
-        if ($i < $endPos && $this->tokens[$i]['type'] === TokenType::Quote) {
+        if ($i < $endPos && $this->tokens[$i]->type === TokenType::Quote) {
             $i++;
         }
 
         // Stop before closing the quote
-        if ($endPos > $startPos && $this->tokens[$endPos - 1]['type'] === TokenType::Quote) {
+        if ($endPos > $startPos && $this->tokens[$endPos - 1]->type === TokenType::Quote) {
             $endPos--;
         }
 
@@ -201,7 +201,7 @@ trait ProcessesElementAttributes
         }
 
         // Standalone attribute
-        $firstType = $this->tokens[$attrStart]['type'];
+        $firstType = $this->tokens[$attrStart]->type;
 
         if ($bounds['length'] <= 3 && ConstructScanner::isEchoStart($firstType)) {
             $this->pos = $attrStart;
@@ -240,14 +240,14 @@ trait ProcessesElementAttributes
         $tokenCount = $this->tokenTotal;
 
         while ($attrEnd < $tokenCount) {
-            $type = $this->tokens[$attrEnd]['type'];
+            $type = $this->tokens[$attrEnd]->type;
 
             if ($type === TokenType::GreaterThan || $type === TokenType::SyntheticClose) {
                 break;
             }
 
             if ($type === TokenType::Slash && $attrEnd + 1 < $tokenCount) {
-                $next = $this->tokens[$attrEnd + 1]['type'];
+                $next = $this->tokens[$attrEnd + 1]->type;
                 if ($next === TokenType::GreaterThan || $next === TokenType::SyntheticClose) {
                     break;
                 }
@@ -280,14 +280,14 @@ trait ProcessesElementAttributes
         $lastNonWhitespace = $this->pos;
 
         while ($scanPos < $attrEnd) {
-            $type = $this->tokens[$scanPos]['type'];
+            $type = $this->tokens[$scanPos]->type;
 
             if ($type === TokenType::Whitespace) {
                 $lookAhead = $scanPos + 1;
-                while ($lookAhead < $attrEnd && $this->tokens[$lookAhead]['type'] === TokenType::Whitespace) {
+                while ($lookAhead < $attrEnd && $this->tokens[$lookAhead]->type === TokenType::Whitespace) {
                     $lookAhead++;
                 }
-                if ($lookAhead < $attrEnd && $this->tokens[$lookAhead]['type'] === TokenType::Equals) {
+                if ($lookAhead < $attrEnd && $this->tokens[$lookAhead]->type === TokenType::Equals) {
                     $scanPos = $lookAhead;
 
                     continue;
@@ -300,21 +300,21 @@ trait ProcessesElementAttributes
                 $nameEnd = $lastNonWhitespace;
                 $scanPos++;
 
-                while ($scanPos < $attrEnd && $this->tokens[$scanPos]['type'] === TokenType::Whitespace) {
+                while ($scanPos < $attrEnd && $this->tokens[$scanPos]->type === TokenType::Whitespace) {
                     $scanPos++;
                 }
 
                 if ($scanPos < $attrEnd) {
-                    if ($this->tokens[$scanPos]['type'] === TokenType::Quote) {
+                    if ($this->tokens[$scanPos]->type === TokenType::Quote) {
                         $scanPos++; // opening "
-                        while ($scanPos < $attrEnd && $this->tokens[$scanPos]['type'] !== TokenType::Quote) {
+                        while ($scanPos < $attrEnd && $this->tokens[$scanPos]->type !== TokenType::Quote) {
                             $scanPos = ConstructScanner::advancePast($this->tokens, $scanPos, $attrEnd);
                         }
                         if ($scanPos < $attrEnd) {
                             $scanPos++; // closing "
                         }
                     } else {
-                        while ($scanPos < $attrEnd && $this->tokens[$scanPos]['type'] !== TokenType::Whitespace) {
+                        while ($scanPos < $attrEnd && $this->tokens[$scanPos]->type !== TokenType::Whitespace) {
                             $scanPos = ConstructScanner::advancePast($this->tokens, $scanPos, $attrEnd);
                         }
                     }
@@ -342,7 +342,7 @@ trait ProcessesElementAttributes
         if ($equalsPos !== -1 && $nameEnd !== -1) {
             $nameCount = $nameEnd - $attrStart;
             $valueStart = $equalsPos + 1;
-            while ($valueStart < $scanPos && $this->tokens[$valueStart]['type'] === TokenType::Whitespace) {
+            while ($valueStart < $scanPos && $this->tokens[$valueStart]->type === TokenType::Whitespace) {
                 $valueStart++;
             }
             $valueCount = $scanPos - $valueStart;
@@ -374,7 +374,7 @@ trait ProcessesElementAttributes
     {
         $startPos = $this->pos;
         $tokenCount = $limit ?? $this->tokenTotal;
-        $startType = $this->tokens[$startPos]['type'];
+        $startType = $this->tokens[$startPos]->type;
 
         $nodeKind = ConstructScanner::getNodeKind($startType) ?? $default;
         $constructTokenCount = ConstructScanner::countConstructTokens($this->tokens, $startPos, $tokenCount);
@@ -397,7 +397,7 @@ trait ProcessesElementAttributes
         $lastChildIdx = null;
 
         while ($i < $endPos) {
-            $type = $this->tokens[$i]['type'];
+            $type = $this->tokens[$i]->type;
             $childNode = null;
             $childTokenCount = 1;
 
@@ -418,7 +418,7 @@ trait ProcessesElementAttributes
                     tokenCount: $childTokenCount
                 );
             } elseif ($asValue && $type === TokenType::Directive) {
-                $directiveName = DirectiveHelper::extractDirectiveName($this->tokens[$i], $this->source);
+                $directiveName = DirectiveHelper::extractDirectiveNameFromToken($this->tokens[$i], $this->source);
                 $argsInfo = DirectiveHelper::checkDirectiveArgs($this->tokens, $this->source, $i + 1, $endPos);
                 $childTokenCount = 1 + $argsInfo['consumed'];
                 $childNode = $this->createNode(
@@ -439,14 +439,14 @@ trait ProcessesElementAttributes
             }
 
             $childIdx = $this->nodeCount++;
-            $this->nodes[$childIdx] = $childNode;
+            $this->nodes[$childIdx] = $this->compactNode($childNode);
 
             if ($lastChildIdx === null) {
-                $this->nodes[$parentIdx]['firstChild'] = $childIdx;
+                $this->nodes[$parentIdx]->firstChild = $childIdx;
             } else {
-                $this->nodes[$lastChildIdx]['nextSibling'] = $childIdx;
+                $this->nodes[$lastChildIdx]->nextSibling = $childIdx;
             }
-            $this->nodes[$parentIdx]['lastChild'] = $childIdx;
+            $this->nodes[$parentIdx]->lastChild = $childIdx;
             $lastChildIdx = $childIdx;
 
             $i += $childTokenCount;

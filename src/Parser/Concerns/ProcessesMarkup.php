@@ -42,7 +42,7 @@ trait ProcessesMarkup
         $endPos = $this->pos;
         $hasClosing = false;
         while ($endPos < $tokenCount) {
-            if ($tokens[$endPos]['type'] === TokenType::DeclEnd) {
+            if ($tokens[$endPos]->type === TokenType::DeclEnd) {
                 $hasClosing = true;
                 break;
             }
@@ -65,7 +65,7 @@ trait ProcessesMarkup
         $this->pos++;
 
         while ($this->pos < $tokenCount) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
 
             if ($type === TokenType::DeclEnd) {
                 $this->pos++;
@@ -110,7 +110,7 @@ trait ProcessesMarkup
     protected function processDeclEcho(int $declEndPos): void
     {
         $startPos = $this->pos;
-        $startType = $this->tokens[$startPos]['type'];
+        $startType = $this->tokens[$startPos]->type;
 
         $nodeKind = ConstructScanner::getNodeKind($startType) ?? NodeKind::Echo;
         $constructTokenCount = ConstructScanner::countConstructTokens($this->tokens, $startPos, $declEndPos);
@@ -134,7 +134,7 @@ trait ProcessesMarkup
         $nameCount = 0;
 
         while ($this->pos < $tokenCount && $this->pos < $attrEnd) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
             if ($type === TokenType::AttributeName
                 || $type === TokenType::EchoStart
                 || $type === TokenType::RawEchoStart
@@ -193,7 +193,7 @@ trait ProcessesMarkup
         $tokens = $this->tokens;
         $tokenCount = count($tokens);
 
-        if ($this->pos >= $tokenCount || $tokens[$this->pos]['type'] !== TokenType::Quote) {
+        if ($this->pos >= $tokenCount || $tokens[$this->pos]->type !== TokenType::Quote) {
             return 0;
         }
 
@@ -201,7 +201,7 @@ trait ProcessesMarkup
         $this->pos++;
 
         while ($this->pos < $tokenCount && $this->pos < $attrEnd) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
 
             if ($type === TokenType::Quote) {
                 $count++;
@@ -227,7 +227,7 @@ trait ProcessesMarkup
 
         for ($i = 0; $i < $count; $i++) {
             $tokenPos = $start + $i;
-            $type = $tokens[$tokenPos]['type'];
+            $type = $tokens[$tokenPos]->type;
 
             if ($isValue) {
                 // Skip structural quote/end tokens in values
@@ -242,19 +242,19 @@ trait ProcessesMarkup
             $nodeKind = $this->declPartNodeKind($type, $isValue);
 
             $partIdx = $this->nodeCount++;
-            $this->nodes[$partIdx] = $this->createNode(
+            $this->nodes[$partIdx] = $this->compactNode($this->createNode(
                 kind: $nodeKind,
                 parent: $parentIdx,
                 tokenStart: $tokenPos,
                 tokenCount: 1
-            );
+            ));
 
             if ($lastChildIdx === -1) {
-                $this->nodes[$parentIdx]['firstChild'] = $partIdx;
+                $this->nodes[$parentIdx]->firstChild = $partIdx;
             } else {
-                $this->nodes[$lastChildIdx]['nextSibling'] = $partIdx;
+                $this->nodes[$lastChildIdx]->nextSibling = $partIdx;
             }
-            $this->nodes[$parentIdx]['lastChild'] = $partIdx;
+            $this->nodes[$parentIdx]->lastChild = $partIdx;
             $lastChildIdx = $partIdx;
         }
     }
@@ -271,14 +271,14 @@ trait ProcessesMarkup
         $valueCount = 0;
 
         $checkPos = $this->pos;
-        if ($checkPos < $tokenCount && $tokens[$checkPos]['type'] === TokenType::Whitespace) {
+        if ($checkPos < $tokenCount && $tokens[$checkPos]->type === TokenType::Whitespace) {
             $checkPos++;
         }
 
-        if ($checkPos < $tokenCount && $tokens[$checkPos]['type'] === TokenType::Equals) {
+        if ($checkPos < $tokenCount && $tokens[$checkPos]->type === TokenType::Equals) {
             $this->pos = $checkPos + 1;
 
-            if ($this->pos < $tokenCount && $tokens[$this->pos]['type'] === TokenType::Whitespace) {
+            if ($this->pos < $tokenCount && $tokens[$this->pos]->type === TokenType::Whitespace) {
                 $this->pos++;
             }
 

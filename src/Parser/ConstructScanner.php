@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Parser;
 
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 
 class ConstructScanner
@@ -67,7 +68,7 @@ class ConstructScanner
     /**
      * Scan a construct from start to end, returning the new position and token count.
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens  The token array
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens  The token array
      * @param  int  $pos  Current position (at construct start token)
      * @param  int  $end  End boundary (exclusive)
      * @return array{int, int} [newPosition, tokenCount]
@@ -107,7 +108,7 @@ class ConstructScanner
     /**
      * Find the end position of a construct (exclusive).
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens  The token array
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens  The token array
      * @param  int  $pos  Current position (at construct start token)
      * @param  int  $end  End boundary (exclusive)
      */
@@ -121,7 +122,7 @@ class ConstructScanner
     /**
      * Advance past a construct or single token.
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens  The token array
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens  The token array
      * @param  int  $pos  Current position
      * @param  int  $end  End boundary (exclusive)
      */
@@ -143,7 +144,7 @@ class ConstructScanner
     /**
      * Count tokens in a construct starting at the given position.
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens  The token array
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens  The token array
      * @param  int  $pos  Current position (at construct start token)
      * @param  int  $end  End boundary (exclusive)
      */

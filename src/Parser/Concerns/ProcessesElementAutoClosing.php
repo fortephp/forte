@@ -121,8 +121,8 @@ trait ProcessesElementAutoClosing
             }
 
             $node = &$this->nodes[$elementIdx];
-            $tokenStart = $node['tokenStart'];
-            $node['tokenCount'] = $totalTokens - $tokenStart;
+            $tokenStart = $node->tokenStart;
+            $node->tokenCount = $totalTokens - $tokenStart;
         }
     }
 
@@ -164,7 +164,7 @@ trait ProcessesElementAutoClosing
 
     protected function isElementNode(int $idx): bool
     {
-        return isset($this->nodes[$idx]) && $this->nodes[$idx]['kind'] === NodeKind::Element;
+        return isset($this->nodes[$idx]) && $this->nodes[$idx]->kind === NodeKind::Element;
     }
 
     /**
@@ -180,13 +180,13 @@ trait ProcessesElementAutoClosing
      */
     protected function parentTagNameOf(int $idx): ?string
     {
-        $parentIdx = $this->nodes[$idx]['parent'] ?? null;
+        $parentIdx = $this->nodes[$idx]->parent ?? null;
         if (! is_int($parentIdx) || $parentIdx <= 0 || ! isset($this->nodes[$parentIdx])) {
             return null;
         }
 
         $parentNode = $this->nodes[$parentIdx];
-        if ($parentNode['kind'] !== NodeKind::Element) {
+        if ($parentNode->kind !== NodeKind::Element) {
             return null;
         }
 

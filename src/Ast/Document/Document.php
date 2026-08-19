@@ -31,6 +31,8 @@ use Forte\Ast\PhpTagNode;
 use Forte\Ast\TextNode;
 use Forte\Ast\TraversalOptions;
 use Forte\Components\ComponentManager;
+use Forte\Internal\FlatNodeRecord;
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Lexer;
 use Forte\Lexer\LexerError;
 use Forte\Lexer\LineIndex;
@@ -84,10 +86,10 @@ class Document implements Countable, IteratorAggregate, Stringable
 
     private const NONE = -1;
 
-    /** @var array<int, FlatNode> */
+    /** @var array<int, FlatNodeRecord> */
     private array $nodes;
 
-    /** @var array<int, array{type: int, start: int, end: int}> */
+    /** @var array<int, TokenRecord> */
     private array $tokens;
 
     /** @var array<int, int> */
@@ -98,6 +100,9 @@ class Document implements Countable, IteratorAggregate, Stringable
 
     /** @var array<int, Node>|null */
     private ?array $descendantCache = null;
+
+    /** @var array<string, array<int, Node>> */
+    private array $typedTraversalCache = [];
 
     private ?LineIndex $lineIndex = null;
 
@@ -122,8 +127,8 @@ class Document implements Countable, IteratorAggregate, Stringable
     private array $nodeTags = [];
 
     /**
-     * @param  array<int, FlatNode>  $nodes
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, FlatNodeRecord>  $nodes
+     * @param  array<int, TokenRecord>  $tokens
      * @param  array<int, int>  $rootChildren
      * @param  array<int, string>  $syntheticContent
      * @param  array<int, array<string, mixed>>  $syntheticMeta
@@ -168,19 +173,19 @@ class Document implements Countable, IteratorAggregate, Stringable
 
         $registry?->configureLexer($lexer);
 
-        $lexerResult = $lexer->tokenize();
+        $lexerResult = $lexer->tokenizeCompact();
 
         if ($directives->acceptsAllDirectives()) {
-            $directives->train($lexerResult->tokens, $template);
+            $directives->trainCompact($lexerResult['tokens'], $template);
         }
 
-        $builder = new TreeBuilder($lexerResult->tokens, $template, $directives);
+        $builder = new TreeBuilder($lexerResult['tokens'], $template, $directives);
 
         $builder->setDepthLimits(...$options->getDepthLimits());
 
         $registry?->configureTreeBuilder($builder);
 
-        $treeResult = $builder->build();
+        $treeResult = $builder->buildCompact();
 
         $nodes = $treeResult['nodes'];
 
@@ -199,14 +204,14 @@ class Document implements Countable, IteratorAggregate, Stringable
 
         return new self(
             $nodes,
-            $lexerResult->tokens,
+            $lexerResult['tokens'],
             $template,
             $directives,
             $componentManager,
             $rootChildren,
             [],
             [],
-            $lexerResult->errors,
+            $lexerResult['errors'],
             $nodeKindRegistry
         );
     }
@@ -214,8 +219,8 @@ class Document implements Countable, IteratorAggregate, Stringable
     /**
      * Create a Document from pre-built parts.
      *
-     * @param  array<int, array<string, mixed>>  $nodes  The nodes
-     * @param  array<int, array<string, mixed>>  $tokens  Token stream
+     * @param  array<int, FlatNode>  $nodes  The nodes
+     * @param  array<int, array{type: int, start: int, end: int}>  $tokens  Token stream
      * @param  string  $source  Original source template
      * @param  array<int, string>  $syntheticContent  Rendered content for synthetic nodes
      * @param  array<int, array<string, mixed>>  $syntheticMeta  Metadata for synthetic nodes
@@ -232,6 +237,15 @@ class Document implements Countable, IteratorAggregate, Stringable
         array $syntheticMeta = [],
         ?NodeKindRegistry $nodeKindRegistry = null
     ): self {
+        $nodes = array_map(
+            FlatNodeRecord::fromArray(...),
+            $nodes
+        );
+        $tokens = array_map(
+            TokenRecord::fromArray(...),
+            $tokens
+        );
+
         /** @var list<int> $rootChildren */
         $rootChildren = [];
         if (! empty($nodes)) {
@@ -246,8 +260,6 @@ class Document implements Countable, IteratorAggregate, Stringable
             }
         }
 
-        /** @var array<int, FlatNode> $nodes */
-        /** @var array<int, array{type: int, start: int, end: int}> $tokens */
         return new self(
             $nodes,
             $tokens,
@@ -344,17 +356,29 @@ class Document implements Countable, IteratorAggregate, Stringable
     public function allOfType(string $class, TraversalOptions|bool $options = false): NodeCollection
     {
         $options = TraversalOptions::from($options);
-        $results = [];
+        $cacheKey = implode(':', [
+            $class,
+            (int) $options->includeInternal,
+            (int) $options->includeSynthetic,
+            (int) $options->includeTrivia,
+            $options->maxDepth ?? 'null',
+        ]);
 
-        foreach ($this->children() as $child) {
-            /** @var T $match */
-            foreach ($child->allOfType($class, $options) as $match) {
-                $results[] = $match;
+        if (! isset($this->typedTraversalCache[$cacheKey])) {
+            $results = [];
+
+            foreach ($this->children() as $child) {
+                /** @var T $match */
+                foreach ($child->allOfType($class, $options) as $match) {
+                    $results[] = $match;
+                }
             }
+
+            $this->typedTraversalCache[$cacheKey] = $results;
         }
 
         /** @var NodeCollection<int, T> */
-        return NodeCollection::make($results);
+        return NodeCollection::make($this->typedTraversalCache[$cacheKey]);
     }
 
     /**

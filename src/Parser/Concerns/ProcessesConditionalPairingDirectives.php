@@ -58,8 +58,8 @@ trait ProcessesConditionalPairingDirectives
         for ($i = $startPos; $i < $startPos + $tokenCount && $i < count($this->tokens); $i++) {
             $token = $this->tokens[$i];
 
-            if ($token['type'] === TokenType::DirectiveArgs) {
-                $content = substr($this->source, $token['start'], $token['end'] - $token['start']);
+            if ($token->type === TokenType::DirectiveArgs) {
+                $content = substr($this->source, $token->start, $token->end - $token->start);
                 $argCount = DirectiveHelper::countDirectiveArgs($content);
                 break;
             }

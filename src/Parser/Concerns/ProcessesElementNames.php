@@ -27,7 +27,7 @@ trait ProcessesElementNames
         $tagNameStart = $this->pos;
 
         while ($this->pos < $limit) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
 
             if ($this->isElementNameTerminator($type)) {
                 if ($type === TokenType::TsxGenericType) {
@@ -71,7 +71,7 @@ trait ProcessesElementNames
         $lastChildIdx = null;
 
         while ($i < $endPos) {
-            $type = $tokens[$i]['type'];
+            $type = $tokens[$i]->type;
             $childTokenCount = 1;
             $childNode = null;
 
@@ -113,11 +113,11 @@ trait ProcessesElementNames
                 break;
             }
 
-            if ($tokens[$idx]['type'] === TokenType::TagName) {
+            if ($tokens[$idx]->type === TokenType::TagName) {
                 $text .= substr(
                     $this->source,
-                    $tokens[$idx]['start'],
-                    $tokens[$idx]['end'] - $tokens[$idx]['start']
+                    $tokens[$idx]->start,
+                    $tokens[$idx]->end - $tokens[$idx]->start
                 );
             }
         }
@@ -129,12 +129,12 @@ trait ProcessesElementNames
     {
         $node = $this->nodes[$nodeIdx];
 
-        if ($node['kind'] !== NodeKind::Element) {
+        if ($node->kind !== NodeKind::Element) {
             return '';
         }
 
-        $tagNameCount = $node['data'];
-        $tagNameStart = $node['tokenStart'] + 1; // Skip "<"
+        $tagNameCount = $node->data;
+        $tagNameStart = $node->tokenStart + 1; // Skip "<"
 
         return $this->getTagNameText($tagNameStart, $tagNameCount);
     }
@@ -149,7 +149,7 @@ trait ProcessesElementNames
             if ($idx >= $total) {
                 break;
             }
-            if ($tokens[$idx]['type'] !== TokenType::TagName) {
+            if ($tokens[$idx]->type !== TokenType::TagName) {
                 return true;
             }
         }
@@ -174,14 +174,14 @@ trait ProcessesElementNames
     private function linkChildNode(int $parentIdx, ?int $lastChildIdx, array $childNode): int
     {
         $childIdx = $this->nodeCount++;
-        $this->nodes[$childIdx] = $childNode;
+        $this->nodes[$childIdx] = $this->compactNode($childNode);
 
         if ($lastChildIdx === null) {
-            $this->nodes[$parentIdx]['firstChild'] = $childIdx;
+            $this->nodes[$parentIdx]->firstChild = $childIdx;
         } else {
-            $this->nodes[$lastChildIdx]['nextSibling'] = $childIdx;
+            $this->nodes[$lastChildIdx]->nextSibling = $childIdx;
         }
-        $this->nodes[$parentIdx]['lastChild'] = $childIdx;
+        $this->nodes[$parentIdx]->lastChild = $childIdx;
 
         return $childIdx;
     }

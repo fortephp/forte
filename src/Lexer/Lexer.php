@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Forte\Lexer;
 
 use Forte\Extensions\AttributeExtension;
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Concerns\AttributeScanner;
 use Forte\Lexer\Concerns\BladeCommentScanner;
 use Forte\Lexer\Concerns\ByteHelpers;
@@ -52,7 +53,7 @@ class Lexer
 
     private State $returnState;
 
-    /** @var array<int, array{type: int, start: int, end: int}> */
+    /** @var array<int, TokenRecord> */
     private array $tokens = [];
 
     /** @var array<int, LexerError> */
@@ -143,6 +144,30 @@ class Lexer
 
     public function tokenize(): LexerResult
     {
+        $this->scan();
+
+        return new LexerResult(
+            array_map(static fn (TokenRecord $token): array => $token->toArray(), $this->tokens),
+            $this->errors
+        );
+    }
+
+    /**
+     * Tokenize without expanding the internal token records.
+     *
+     * @internal
+     *
+     * @return array{tokens: array<int, TokenRecord>, errors: array<int, LexerError>}
+     */
+    public function tokenizeCompact(): array
+    {
+        $this->scan();
+
+        return ['tokens' => $this->tokens, 'errors' => $this->errors];
+    }
+
+    private function scan(): void
+    {
         while ($this->pos < $this->len) {
             if ($this->extensions !== null && $this->state === State::Data) {
                 if ($this->extensions->tryTokenize($this->getExtensionContext())) {
@@ -213,7 +238,6 @@ class Lexer
             $this->emitToken(TokenType::SyntheticClose, $this->pos, $this->pos);
         }
 
-        return new LexerResult($this->tokens, $this->errors);
     }
 
     /**
@@ -343,7 +367,7 @@ class Lexer
      */
     public function emitToken(int $type, int $start, int $end): void
     {
-        $this->tokens[] = ['type' => $type, 'start' => $start, 'end' => $end];
+        $this->tokens[] = new TokenRecord($type, $start, $end);
     }
 
     /**
