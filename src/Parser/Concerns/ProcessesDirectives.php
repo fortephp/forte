@@ -73,15 +73,8 @@ trait ProcessesDirectives
     }
 
     /**
-     * Recover sibling-shaped malformed blocks without weakening directive
-     * boundaries. Laravel leaves a terminator attached to preceding word text
-     * literal (for example, `Body@endcomponent`). If the same paired opener is
-     * repeated, keeping every unterminated frame open eventually turns flat
-     * malformed input into artificial nesting deep enough to exhaust the
-     * parser's stack limit.
-     *
-     * The compact terminator remains ordinary text. It is used only as an
-     * error-recovery boundary before the next opener in the same family.
+     * Recover repeated paired openers when a compact terminator was lexed as
+     * text. The text remains unchanged and only marks the recovery boundary.
      */
     protected function recoverRepeatedUnterminatedPairedDirective(
         string $directiveName,
