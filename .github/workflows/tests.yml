@@ -20,6 +20,8 @@ jobs:
         exclude:
           - php: 8.2
             laravel: '13'
+          - php: 8.5
+            laravel: '10'
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }}
 
@@ -59,8 +61,8 @@ jobs:
       - name: Verify resolved framework
         shell: bash
         run: |
-          php -r 'require "vendor/autoload.php"; $v = ltrim(Composer\InstalledVersions::getPrettyVersion("illuminate/support") ?? "", "v"); exit(str_starts_with($v, "${{ matrix.laravel }}.") ? 0 : 1);'
-          composer show illuminate/support
+          php -r 'require "vendor/autoload.php"; $v = ltrim(Composer\InstalledVersions::getPrettyVersion("laravel/framework") ?? "", "v"); exit(str_starts_with($v, "${{ matrix.laravel }}.") ? 0 : 1);'
+          composer show laravel/framework
           composer show orchestra/testbench
 
       - name: Install Blaze when compatible
