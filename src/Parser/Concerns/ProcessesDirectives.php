@@ -830,12 +830,7 @@ trait ProcessesDirectives
     {
         $directive = $this->directives->getDirective($directiveName);
 
-        // Some Blade directives are structurally overloaded. In particular,
-        // parenthesized @empty(...) opens an empty/endempty condition, while
-        // bare @empty is the intermediate branch of an open @forelse. Prefer
-        // the directive's own opening role when this invocation has arguments;
-        // otherwise the surrounding directive frame gets the first chance to
-        // claim it as a branch.
+        // An argument-bearing @empty can open its own condition inside @forelse.
         if ($argsContent !== null
             && $this->isBranchOfOpenDirective($directiveName)
             && $this->directives->isCondition($directiveName)
@@ -884,12 +879,7 @@ trait ProcessesDirectives
         $this->createStandaloneDirective($directiveName, $startPos, $tokenCount, $argsContent);
     }
 
-    /**
-     * Resolve a parenthesized directive whose name is also an active outer
-     * branch. Its own closer is the structural evidence that it opens a nested
-     * condition. Without that closer, retaining the outer branch interpretation
-     * gives downstream validation an accurate malformed tree to diagnose.
-     */
+    /** Check for the directive's own closer before the outer block boundary. */
     protected function hasOwnConditionTerminatorBeforeOuterBoundary(string $directiveName, int $searchStart): bool
     {
         $directive = $this->directives->getDirective($directiveName);

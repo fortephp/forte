@@ -5,13 +5,6 @@ declare(strict_types=1);
 use Forte\Ast\DirectiveBlockNode;
 use Forte\Parser\Directives\Directives;
 
-/**
- * Directives Laravel compiles that Forte did not know about.
- *
- * An unknown directive is not an error — it degrades to text — but it means the
- * tree carries no block for it, so anything reasoning about structure treats a
- * correctly written `@session` as if it were not a directive at all.
- */
 describe('recently added Blade directives', function (): void {
     test('is a known directive', function (string $name): void {
         expect(Directives::withDefaults()->isDirective($name))->toBeTrue();
@@ -39,7 +32,6 @@ describe('recently added Blade directives', function (): void {
     })->with([
         'session' => ["@session('status') <p>{{ \$value }}</p> @endsession", 'session', 'endsession'],
         'context' => ["@context('trace_id') <p>{{ \$value }}</p> @endcontext", 'context', 'endcontext'],
-        // @hasStack compiles to a bare if, so @endif closes it, like @hasSection.
         'hasStack' => ["@hasStack('scripts') <p>yes</p> @endif", 'hasstack', 'endif'],
     ]);
 

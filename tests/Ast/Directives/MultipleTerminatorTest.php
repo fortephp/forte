@@ -5,15 +5,6 @@ declare(strict_types=1);
 use Forte\Ast\DirectiveBlockNode;
 use Forte\Parser\Directives\Directives;
 
-/**
- * Directives that accept more than one closing directive.
- *
- * `@push` closes with either `@endpush` or `@endpushOnce`, `@prepend` with
- * `@endprepend` or `@endprependOnce`, and `@component` with `@endcomponent` or
- * `@endcomponentClass`. These once failed to pair at all: the tokens were still
- * produced, so rendering round-tripped perfectly and nothing looked wrong, but
- * no DirectiveBlock was assembled and both halves surfaced as loose directives.
- */
 describe('directives with multiple terminators', function (): void {
     test('pairs into a block', function (string $input, string $name, string $end): void {
         $doc = $this->parse($input);
@@ -28,7 +19,6 @@ describe('directives with multiple terminators', function (): void {
             ->and($block->endDirective())->not->toBeNull()
             ->and($block->endDirective()->nameText())->toBe($end)
             ->and($doc->render())->toBe($input);
-        // Directive names normalize to lower case; render() keeps source casing.
     })->with([
         'push' => ["@push('scripts') body @endpush", 'push', 'endpush'],
         'push closed by endpushOnce' => ["@push('scripts') body @endpushOnce", 'push', 'endpushonce'],
@@ -85,8 +75,6 @@ describe('directives with multiple terminators', function (): void {
             $blocks[] = $block;
         });
 
-        // Either left loose or opened without a terminator; what must not happen
-        // is a block that claims to be closed.
         foreach ($blocks as $block) {
             expect($block->endDirective())->toBeNull();
         }
@@ -109,10 +97,6 @@ describe('directives with multiple terminators', function (): void {
     });
 });
 
-/**
- * Nobody should write most of these, but the parser has to survive them without
- * losing content or mispairing the blocks it does build.
- */
 describe('mixed and nested terminator usage', function (): void {
     /**
      * @return array<string> Block names paired with the terminator that closed them
@@ -190,7 +174,6 @@ describe('mixed and nested terminator usage', function (): void {
         expect(blockPairs($input))->toBe($blocks)
             ->and(looseDirectives($input))->toBe($loose);
     })->with([
-        // The inner push claims the only terminator; the outer stays open.
         'two openers, one terminator' => [
             "@push('a') @push('b') x @endpush",
             ['push/unclosed', 'push/endpush'],
@@ -201,7 +184,6 @@ describe('mixed and nested terminator usage', function (): void {
             ['push/endpush'],
             ['endpush'],
         ],
-        // endprepend does not close a push, and vice versa.
         'push closed by the prepend terminator' => [
             "@push('a') x @endprepend",
             ['push/unclosed'],
@@ -212,7 +194,6 @@ describe('mixed and nested terminator usage', function (): void {
             ['prepend/unclosed'],
             ['endpush'],
         ],
-        // A push opened inside @if cannot be closed outside it.
         'terminator outside the enclosing block' => [
             '@if($a) @push("s") x @endif @endpush',
             ['if/endif', 'push/unclosed'],
@@ -243,17 +224,13 @@ describe('primary terminator resolution', function (): void {
     test('names the first end-style terminator', function (string $directive, string $expected): void {
         expect(Directives::withDefaults()->getTerminator($directive))->toBe($expected);
     })->with([
-        // Closers listed first; the primary is the first, not the last.
         'push' => ['push', 'endpush'],
         'prepend' => ['prepend', 'endprepend'],
         'component' => ['component', 'endcomponent'],
-        // Branch keyword listed first; the primary is still the closer.
         'if' => ['if', 'endif'],
         'auth' => ['auth', 'endauth'],
         'once' => ['once', 'endonce'],
-        // Section-style lists resolve as they always did.
         'section' => ['section', 'endsection'],
-        // Single-terminator directives are unaffected.
         'foreach' => ['foreach', 'endforeach'],
         'forelse' => ['forelse', 'endforelse'],
     ]);
