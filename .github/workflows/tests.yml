@@ -61,9 +61,9 @@ jobs:
       - name: Verify resolved framework
         shell: bash
         run: |
-          php -r 'require "vendor/autoload.php"; $v = ltrim(Composer\InstalledVersions::getPrettyVersion("laravel/framework") ?? "", "v"); exit(str_starts_with($v, "${{ matrix.laravel }}.") ? 0 : 1);'
           composer show laravel/framework
           composer show orchestra/testbench
+          php -r 'require "vendor/autoload.php"; exit(Composer\InstalledVersions::satisfies(new Composer\Semver\VersionParser, "laravel/framework", "^${{ matrix.laravel }}.0") ? 0 : 1);'
 
       - name: Install Blaze when compatible
         run: composer require "livewire/blaze:^1.0.2" --dev --no-interaction
