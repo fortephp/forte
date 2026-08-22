@@ -5,10 +5,6 @@ declare(strict_types=1);
 use Forte\Ast\Document\Document;
 use Forte\Ast\Elements\ElementNode;
 
-/**
- * Queries are built on a cached walk of the tree, so asking twice must give the
- * same answer, and two documents must never share one.
- */
 describe('repeated queries', function (): void {
     test('return the same elements every time', function (): void {
         $doc = $this->parse('<div><p>a</p><p>b</p><span>c</span></div>');

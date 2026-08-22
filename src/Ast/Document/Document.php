@@ -287,9 +287,6 @@ class Document implements Countable, IteratorAggregate, Stringable
     /**
      * Walk all nodes in the document depth-first.
      *
-     * Cached after the first walk, which the tree being fixed at construction
-     * makes safe. That is what $nodeCache already assumes.
-     *
      * @return array<int, Node>
      */
     private function allDescendants(): array
