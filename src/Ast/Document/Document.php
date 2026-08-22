@@ -176,6 +176,8 @@ class Document implements Countable, IteratorAggregate, Stringable
 
         $builder = new TreeBuilder($lexerResult->tokens, $template, $directives);
 
+        $builder->setDepthLimits(...$options->getDepthLimits());
+
         $registry?->configureTreeBuilder($builder);
 
         $treeResult = $builder->build();

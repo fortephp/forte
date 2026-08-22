@@ -22,6 +22,9 @@ class ParserOptions
 
     private bool $syncLaravelDirectives = false;
 
+    /** @var array{elements: int, directives: int, conditions: int}|null */
+    private ?array $depthLimits = null;
+
     /**
      * Create a new ParserOptions instance.
      */
@@ -109,6 +112,38 @@ class ParserOptions
         $this->syncLaravelDirectives = $sync;
 
         return $this;
+    }
+
+    /**
+     * Configure bounded parser stack depths.
+     */
+    public function depthLimits(
+        int $elements = TreeBuilder::DEFAULT_MAX_ELEMENT_DEPTH,
+        int $directives = TreeBuilder::DEFAULT_MAX_DIRECTIVE_DEPTH,
+        int $conditions = TreeBuilder::DEFAULT_MAX_CONDITION_DEPTH,
+    ): self {
+        $this->depthLimits = [
+            'elements' => max(1, $elements),
+            'directives' => max(1, $directives),
+            'conditions' => max(1, $conditions),
+        ];
+
+        return $this;
+    }
+
+    public function hasCustomDepthLimits(): bool
+    {
+        return $this->depthLimits !== null;
+    }
+
+    /** @return array{elements: int, directives: int, conditions: int} */
+    public function getDepthLimits(): array
+    {
+        return $this->depthLimits ?? [
+            'elements' => TreeBuilder::DEFAULT_MAX_ELEMENT_DEPTH,
+            'directives' => TreeBuilder::DEFAULT_MAX_DIRECTIVE_DEPTH,
+            'conditions' => TreeBuilder::DEFAULT_MAX_CONDITION_DEPTH,
+        ];
     }
 
     /**
@@ -211,6 +246,10 @@ class ParserOptions
 
         if ($other->syncLaravelDirectives) {
             $this->syncLaravelDirectives = true;
+        }
+
+        if ($other->depthLimits !== null) {
+            $this->depthLimits = $other->depthLimits;
         }
 
         return $this;

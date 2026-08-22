@@ -32,6 +32,12 @@ use RuntimeException;
  */
 class TreeBuilder
 {
+    public const DEFAULT_MAX_ELEMENT_DEPTH = 512;
+
+    public const DEFAULT_MAX_DIRECTIVE_DEPTH = 256;
+
+    public const DEFAULT_MAX_CONDITION_DEPTH = 256;
+
     use ProcessesComments;
     use ProcessesConditionalPairingDirectives;
     use ProcessesDirectives;
@@ -94,11 +100,11 @@ class TreeBuilder
 
     private ?AttributeParserContext $attrExtContext = null;
 
-    private int $maxElementDepth = 512;
+    private int $maxElementDepth = self::DEFAULT_MAX_ELEMENT_DEPTH;
 
-    private int $maxDirectiveDepth = 256;
+    private int $maxDirectiveDepth = self::DEFAULT_MAX_DIRECTIVE_DEPTH;
 
-    private int $maxConditionDepth = 256;
+    private int $maxConditionDepth = self::DEFAULT_MAX_CONDITION_DEPTH;
 
     /** @param  array<int, array{type: int, start: int, end: int}>  $tokens */
     public function __construct(
@@ -115,12 +121,15 @@ class TreeBuilder
     /**
      * Configure stack depth limits.
      *
-     * @param  int  $elements  Maximum element nesting depth (default: 512)
-     * @param  int  $directives  Maximum directive nesting depth (default: 256)
-     * @param  int  $conditions  Maximum condition nesting depth (default: 256)
+     * @param  int  $elements  Maximum element nesting depth
+     * @param  int  $directives  Maximum directive nesting depth
+     * @param  int  $conditions  Maximum condition nesting depth
      */
-    public function setDepthLimits(int $elements = 512, int $directives = 256, int $conditions = 256): self
-    {
+    public function setDepthLimits(
+        int $elements = self::DEFAULT_MAX_ELEMENT_DEPTH,
+        int $directives = self::DEFAULT_MAX_DIRECTIVE_DEPTH,
+        int $conditions = self::DEFAULT_MAX_CONDITION_DEPTH,
+    ): self {
         $this->maxElementDepth = max(1, $elements);
         $this->maxDirectiveDepth = max(1, $directives);
         $this->maxConditionDepth = max(1, $conditions);

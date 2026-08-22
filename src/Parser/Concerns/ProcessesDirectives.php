@@ -59,6 +59,7 @@ trait ProcessesDirectives
         }
 
         if ($this->directives->isPaired($directiveName)) {
+            $this->recoverRepeatedUnterminatedPairedDirective($directiveName, $startPos);
             $this->openPairedDirective($directiveName, $startPos, $tokenCount, $argsContent);
 
             return;
@@ -69,6 +70,50 @@ trait ProcessesDirectives
         }
 
         $this->createStandaloneDirective($directiveName, $startPos, $tokenCount, $argsContent);
+    }
+
+    /**
+     * Recover repeated paired openers when a compact terminator was lexed as
+     * text. The text remains unchanged and only marks the recovery boundary.
+     */
+    protected function recoverRepeatedUnterminatedPairedDirective(
+        string $directiveName,
+        int $startPos
+    ): void {
+        $directive = $this->directives->getDirective($directiveName);
+        if ($directive === null || $directive->terminators === [] || empty($this->openDirectives)) {
+            return;
+        }
+
+        $openers = [$directiveName];
+
+        for ($index = count($this->openDirectives) - 1; $index >= 0; $index--) {
+            $frame = $this->openDirectives[$index];
+            if (! $this->directiveFamiliesIntersect($frame['openers'], $openers)) {
+                continue;
+            }
+
+            $previousStart = $this->nodes[$frame['blockIdx']]['tokenStart'];
+            $contentStart = $this->tokens[$previousStart]['end'] ?? null;
+            $contentEnd = $this->tokens[$startPos]['start'] ?? null;
+            if ($contentStart === null || $contentEnd === null || $contentEnd <= $contentStart) {
+                return;
+            }
+
+            $terminators = implode('|', array_map(
+                static fn (string $terminator): string => preg_quote($terminator, '/'),
+                $frame['terminators']
+            ));
+            $content = substr($this->source, $contentStart, $contentEnd - $contentStart);
+
+            if (preg_match('/(?<=[A-Za-z0-9_])@(?:'.$terminators.')(?![A-Za-z0-9_])/i', $content) !== 1) {
+                return;
+            }
+
+            $this->closeUnmatchedStructuresAtDepth($frame['elementStackBase'], $startPos);
+
+            return;
+        }
     }
 
     protected function tryOpenDiscoveredDirective(
