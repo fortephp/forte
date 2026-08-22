@@ -86,7 +86,7 @@ describe('PHP Block Parsing', function (): void {
 
         expect($element)->toBeInstanceOf(ElementNode::class)
             ->and($element->attributes()->has('class'))->toBeTrue()
-            ->and($element->attributes()->get('class')->decodedValueText())->toBe('panel');
+            ->and($element->attributes()->get('class')->valueText())->toBe('panel');
 
         $phpBlock = collect($element->internalNodes())
             ->first(fn ($node): bool => $node instanceof PhpBlockNode);
