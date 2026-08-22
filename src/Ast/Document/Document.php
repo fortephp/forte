@@ -96,6 +96,9 @@ class Document implements Countable, IteratorAggregate, Stringable
     /** @var array<int, Node> */
     private array $nodeCache = [];
 
+    /** @var array<int, Node>|null */
+    private ?array $descendantCache = null;
+
     private ?LineIndex $lineIndex = null;
 
     /** @var array<int, string>|null */
@@ -284,14 +287,25 @@ class Document implements Countable, IteratorAggregate, Stringable
     /**
      * Walk all nodes in the document depth-first.
      *
-     * @return iterable<Node>
+     * @return array<int, Node>
      */
-    private function allDescendants(): iterable
+    private function allDescendants(): array
     {
-        foreach ($this->children() as $child) {
-            yield $child;
-            yield from $child->descendants();
+        if ($this->descendantCache !== null) {
+            return $this->descendantCache;
         }
+
+        $descendants = [];
+
+        foreach ($this->children() as $child) {
+            $descendants[] = $child;
+
+            foreach ($child->descendants() as $descendant) {
+                $descendants[] = $descendant;
+            }
+        }
+
+        return $this->descendantCache = $descendants;
     }
 
     /**
