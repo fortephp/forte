@@ -165,6 +165,17 @@ readonly class LexerContext
     }
 
     /**
+     * Set the logical tag being tokenized by this extension.
+     *
+     * Call this after emitting the tag delimiter and name tokens when the
+     * core lexer should resume with attribute or closing-delimiter scanning.
+     */
+    public function beginElementTag(string $logicalName, bool $closing = false): void
+    {
+        $this->lexer->beginElementTag($logicalName, $closing);
+    }
+
+    /**
      * Get the lexer return state for nested constructs.
      */
     public function returnState(): State

@@ -294,6 +294,22 @@ class Lexer
     }
 
     /**
+     * Set tag-tracking state for an element opening tokenized by an extension.
+     *
+     * Extension authors should call LexerContext::beginElementTag() after
+     * emitting the tag delimiter and name tokens, before handing attribute
+     * and closing-delimiter scanning back to the core lexer.
+     *
+     * @internal Prefer the extension context facade.
+     */
+    public function beginElementTag(string $logicalName, bool $closing = false): void
+    {
+        $this->currentTagName = $logicalName;
+        $this->isClosingTag = $closing;
+        $this->continuedTagName = false;
+    }
+
+    /**
      * Check if in a @verbatim @endverbatim block.
      */
     public function isVerbatim(): bool

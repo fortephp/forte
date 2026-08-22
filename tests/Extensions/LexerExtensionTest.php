@@ -7,6 +7,7 @@ use Forte\Extensions\ForteExtension;
 use Forte\Lexer\Extension\LexerContext;
 use Forte\Lexer\Extension\LexerExtension;
 use Forte\Lexer\Lexer;
+use Forte\Lexer\State;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Lexer\Tokens\TokenTypeRegistry;
 
@@ -420,6 +421,64 @@ describe('Extension returning false', function (): void {
 });
 
 describe('LexerContext API', function (): void {
+    it('can hand extension-tokenized element tags back to core attribute scanning', function (): void {
+        $ext = createLexerExtension(
+            'spaced-element',
+            '<',
+            fn (LexerContext $ctx): bool => preg_match('/\\G<(?<closing>\\/?)\\s*native\\s*:\\s*(?<name>[a-z]+)/A', $ctx->source(), $matches, 0, $ctx->position()) === 1,
+            function (LexerContext $ctx, int $type): bool {
+                if (preg_match(
+                    '/\\G<(?<closing>\\/?)\\s*native\\s*:\\s*(?<name>[a-z]+)/A',
+                    $ctx->source(),
+                    $matches,
+                    PREG_OFFSET_CAPTURE,
+                    $ctx->position(),
+                ) !== 1) {
+                    return false;
+                }
+
+                $start = $ctx->position();
+                $closing = $matches['closing'][0] === '/';
+                $name = $matches['name'][0];
+                $nameStart = $matches['name'][1];
+                $matchEnd = $start + strlen($matches[0][0]);
+
+                $ctx->emit(TokenType::LessThan, $start, $start + 1);
+                if ($closing) {
+                    $slash = strpos($matches[0][0], '/');
+                    expect($slash)->not->toBeFalse();
+                    $ctx->emit(TokenType::Slash, $start + $slash, $start + $slash + 1);
+                }
+                $ctx->emit(TokenType::TagName, $nameStart, $nameStart + strlen($name));
+                $ctx->beginElementTag('native:'.$name, $closing);
+                $ctx->setPosition($matchEnd);
+                $ctx->setState(State::BeforeAttrName);
+
+                return true;
+            },
+        );
+
+        $source = '</div>< native : column id="one">< native : script data-mode="safe"></ native : script>';
+        $lexer = new Lexer($source);
+        $lexer->registerExtension($ext);
+        $result = $lexer->tokenize();
+
+        $tokens = array_map(
+            static fn (array $token): array => [
+                'type' => $token['type'],
+                'text' => substr($source, $token['start'], $token['end'] - $token['start']),
+            ],
+            $result->tokens,
+        );
+
+        expect($result->errors)->toBeEmpty()
+            ->and($tokens)->toContain(['type' => TokenType::AttributeName, 'text' => 'id'])
+            ->and($tokens)->toContain(['type' => TokenType::AttributeValue, 'text' => 'one'])
+            ->and($tokens)->toContain(['type' => TokenType::AttributeName, 'text' => 'data-mode'])
+            ->and($tokens)->toContain(['type' => TokenType::AttributeValue, 'text' => 'safe'])
+            ->and(array_column($tokens, 'text'))->toContain('script');
+    });
+
     it('provides position and peek methods', function (): void {
         $positions = [];
 
