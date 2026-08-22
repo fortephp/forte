@@ -154,10 +154,7 @@ trait AttributeScanner
                 continue;
             }
 
-            // Custom attribute DSLs may extend a directive-shaped name with
-            // modifiers before a parenthesized payload, for example
-            // `@navigate.fade('/route')`. Keep the payload opaque so `/`
-            // inside quoted arguments cannot be mistaken for a `/>` close.
+            // Keep modifier call payloads opaque to tag-closing detection.
             if ($byte === '(' && $start < $this->pos && $this->source[$start] === '@') {
                 $this->skipBalancedParens();
 

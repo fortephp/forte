@@ -319,9 +319,7 @@ trait HtmlScanner
     protected function scanBeforeAttrName(): void
     {
         if ($this->phpBlock) {
-            // Attribute parsing is paused while a block-form @php directive is
-            // active. Reuse the data scanner's PHP-aware delimiter handling,
-            // then resume at the next attribute.
+            // Scan the PHP block, then resume at the next attribute.
             $this->returnState = State::BeforeAttrName;
             $this->scanData();
 
