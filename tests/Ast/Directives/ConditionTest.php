@@ -252,7 +252,9 @@ BLADE;
 
         $forelse = $children[0]->asDirectiveBlock();
         $forelseDirectives = $forelse->nodes()->directives()->values();
-        $nestedEmptyBlocks = $forelse->descendantNodes()->blockDirectives()->values();
+        $nestedEmptyBlocks = $forelse->allOfType(DirectiveBlockNode::class)
+            ->filter(fn (DirectiveBlockNode $block) => $block->nameText() === 'empty')
+            ->values();
 
         expect($forelseDirectives)->toHaveCount(3)
             ->and($forelseDirectives[0]->nameText())->toBe('forelse')
@@ -312,7 +314,9 @@ BLADE;
 
         $outerBlock = $children[0]->asDirectiveBlock();
         $outerDirectives = $outerBlock->nodes()->directives()->values();
-        $emptyBlocks = $outerBlock->descendantNodes()->blockDirectives()->values();
+        $emptyBlocks = $outerBlock->allOfType(DirectiveBlockNode::class)
+            ->filter(fn (DirectiveBlockNode $block) => $block->nameText() === 'empty')
+            ->values();
 
         expect($outerDirectives)->toHaveCount(3)
             ->and($outerDirectives[0]->nameText())->toBe('if')
