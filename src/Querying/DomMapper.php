@@ -224,7 +224,7 @@ class DomMapper
 
     private function convertText(TextNode $node): ?DOMNode
     {
-        $content = $node->getDocumentContent();
+        $content = $node->getSemanticContent();
 
         if ($content === '') {
             return null;
@@ -448,7 +448,9 @@ class DomMapper
             }
 
             $name = $attr->nameText();
-            $value = $attr->valueText() ?? '';
+            $value = $attr->isStatic() && ! $attr->hasComplexValue()
+                ? $attr->decodedValueText() ?? ''
+                : $attr->valueText() ?? '';
             $type = $attr->type();
 
             if ($this->containsBladeExpression($name)) {

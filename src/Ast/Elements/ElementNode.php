@@ -282,6 +282,41 @@ class ElementNode extends Node
     }
 
     /**
+     * Check if this element matches any tag-name pattern.
+     *
+     * @param  array<string>  $patterns
+     */
+    public function isAny(array $patterns): bool
+    {
+        foreach ($patterns as $pattern) {
+            if ($this->is($pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check the tag name against one or more exact names, case-insensitively.
+     *
+     * @param  string|array<string>  $names
+     */
+    public function isTag(string|array $names): bool
+    {
+        $names = is_string($names) ? [$names] : $names;
+        $tagName = $this->tagNameText();
+
+        foreach ($names as $name) {
+            if (strcasecmp($tagName, $name) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Check if this is a void element.
      */
     public function isVoid(): bool

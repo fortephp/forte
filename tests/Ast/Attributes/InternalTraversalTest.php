@@ -51,4 +51,13 @@ BLADE;
             ->and($nodes[0]->hasArguments())->toBeTrue()
             ->and($nodes[0]->render())->toBe('@lang(\'messages.title\')');
     });
+
+    it('distinguishes source-escaped echoes from rendered echoes', function (): void {
+        $element = $this->parseElement('<div title="@{{ $literal }} {{ $rendered }}"></div>');
+        $attribute = $element->attribute('title');
+
+        expect($attribute?->getInternalEchoes())->toHaveCount(2)
+            ->and($attribute?->getRenderedEchoes())->toHaveCount(1)
+            ->and($attribute?->firstRenderedEcho()?->expression())->toBe('$rendered');
+    });
 });

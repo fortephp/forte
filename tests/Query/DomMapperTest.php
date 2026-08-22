@@ -43,6 +43,18 @@ describe('DomMapper element mapping', function (): void {
             ->and($xml)->toContain('type="text"')
             ->and($xml)->toContain('name="email"');
     });
+
+    it('maps browser-decoded static values while preserving raw-text content', function (): void {
+        $doc = $this->parse('<div role="but&#116;on">A&amp;B</div><script>A&amp;B</script>');
+
+        $mapper = new DomMapper($doc);
+        $result = $mapper->build();
+        $xpath = new DOMXPath($result['dom']);
+
+        expect($xpath->query('//div[@role="button"]'))->toHaveLength(1)
+            ->and($xpath->query('//div[text()="A&B"]'))->toHaveLength(1)
+            ->and($xpath->query('//script[text()="A&amp;B"]'))->toHaveLength(1);
+    });
 });
 
 describe('DomMapper directive mapping', function (): void {
