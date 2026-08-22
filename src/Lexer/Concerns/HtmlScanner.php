@@ -22,19 +22,13 @@ trait HtmlScanner
 
     private function stateAfterTagClose(): State
     {
-        // Only opening tags enter a special text mode. Self-closing tags bypass
-        // this method, and closing tags always return to ordinary data parsing.
         if ($this->isClosingTag) {
             return State::Data;
         }
 
         $tagNameLower = strtolower($this->currentTagName);
 
-        // Raw-text and RCDATA elements share the same delimiter scanner here:
-        // both consume tag-looking content until their own closing tag. Their
-        // semantic difference is preserved by TextNode, which decodes character
-        // references for title/textarea and leaves raw-text element content
-        // literal.
+        // TextNode handles the semantic difference between raw text and RCDATA.
         if (isset(self::SPECIAL_TEXT_ELEMENTS[$tagNameLower])) {
             $this->rawtextTagName = $tagNameLower;
 
