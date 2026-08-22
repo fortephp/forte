@@ -18,7 +18,7 @@ trait ProcessesDirectives
         $startPos = $this->pos;
         $directiveToken = $this->tokens[$this->pos];
 
-        $directiveName = DirectiveHelper::extractDirectiveName($directiveToken, $this->source);
+        $directiveName = DirectiveHelper::extractDirectiveNameFromToken($directiveToken, $this->source);
 
         $tokenCount = 1;
         $argsContent = null;
@@ -93,9 +93,9 @@ trait ProcessesDirectives
                 continue;
             }
 
-            $previousStart = $this->nodes[$frame['blockIdx']]['tokenStart'];
-            $contentStart = $this->tokens[$previousStart]['end'] ?? null;
-            $contentEnd = $this->tokens[$startPos]['start'] ?? null;
+            $previousStart = $this->nodes[$frame['blockIdx']]->tokenStart;
+            $contentStart = $this->tokens[$previousStart]->end ?? null;
+            $contentEnd = $this->tokens[$startPos]->start ?? null;
             if ($contentStart === null || $contentEnd === null || $contentEnd <= $contentStart) {
                 return;
             }
@@ -309,7 +309,7 @@ trait ProcessesDirectives
 
         for ($i = count($this->openElements) - 1; $i >= 0; $i--) {
             $elementIdx = $this->openElements[$i];
-            if (($this->nodes[$elementIdx]['kind'] ?? null) !== NodeKind::Element) {
+            if (($this->nodes[$elementIdx]->kind ?? null) !== NodeKind::Element) {
                 continue;
             }
 
@@ -326,7 +326,7 @@ trait ProcessesDirectives
         $containingTagDepth = 0;
 
         for ($i = $startIdx; $i < $this->tokenTotal; $i++) {
-            if ($this->tokens[$i]['type'] !== TokenType::LessThan) {
+            if ($this->tokens[$i]->type !== TokenType::LessThan) {
                 continue;
             }
 
@@ -334,15 +334,15 @@ trait ProcessesDirectives
                 continue;
             }
 
-            if ($this->tokens[$i + 1]['type'] === TokenType::Slash) {
-                if ($this->tokens[$i + 2]['type'] !== TokenType::TagName) {
+            if ($this->tokens[$i + 1]->type === TokenType::Slash) {
+                if ($this->tokens[$i + 2]->type !== TokenType::TagName) {
                     continue;
                 }
 
                 $closingTagName = StringInterner::lower(substr(
                     $this->source,
-                    $this->tokens[$i + 2]['start'],
-                    $this->tokens[$i + 2]['end'] - $this->tokens[$i + 2]['start']
+                    $this->tokens[$i + 2]->start,
+                    $this->tokens[$i + 2]->end - $this->tokens[$i + 2]->start
                 ));
 
                 if ($closingTagName !== $containingTagName) {
@@ -358,14 +358,14 @@ trait ProcessesDirectives
                 continue;
             }
 
-            if ($this->tokens[$i + 1]['type'] !== TokenType::TagName) {
+            if ($this->tokens[$i + 1]->type !== TokenType::TagName) {
                 continue;
             }
 
             $openingTagName = StringInterner::lower(substr(
                 $this->source,
-                $this->tokens[$i + 1]['start'],
-                $this->tokens[$i + 1]['end'] - $this->tokens[$i + 1]['start']
+                $this->tokens[$i + 1]->start,
+                $this->tokens[$i + 1]->end - $this->tokens[$i + 1]->start
             ));
 
             if ($openingTagName !== $containingTagName) {
@@ -383,10 +383,10 @@ trait ProcessesDirectives
     protected function isSelfClosingElementAt(int $startIdx, int $limitIdx): bool
     {
         for ($i = $startIdx + 1; $i < $limitIdx; $i++) {
-            $type = $this->tokens[$i]['type'];
+            $type = $this->tokens[$i]->type;
 
             if ($type === TokenType::GreaterThan || $type === TokenType::SyntheticClose) {
-                return ($this->tokens[$i - 1]['type'] ?? null) === TokenType::Slash;
+                return ($this->tokens[$i - 1]->type ?? null) === TokenType::Slash;
             }
 
             if ($type === TokenType::LessThan) {
@@ -682,7 +682,7 @@ trait ProcessesDirectives
         $this->popIfTop($blockIdx);
 
         $endPos = $startPos + $tokenCount;
-        $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+        $this->nodes[$blockIdx]->tokenCount = $endPos - $this->nodes[$blockIdx]->tokenStart;
 
         $this->pos += $tokenCount;
     }
@@ -698,9 +698,9 @@ trait ProcessesDirectives
         $this->popIfTop($frame['startDirectiveIdx']);
         $this->popIfTop($blockIdx);
 
-        $this->nodes[$blockIdx]['tokenCount'] = max(
-            $this->nodes[$blockIdx]['tokenCount'],
-            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        $this->nodes[$blockIdx]->tokenCount = max(
+            $this->nodes[$blockIdx]->tokenCount,
+            $endPos - $this->nodes[$blockIdx]->tokenStart
         );
     }
 
@@ -730,17 +730,17 @@ trait ProcessesDirectives
 
             if (! empty($this->openDirectives)) {
                 $frame = $this->openDirectives[array_key_last($this->openDirectives)];
-                $consider('directive', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+                $consider('directive', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]->tokenStart ?? -1);
             }
 
             if (! empty($this->openConditions)) {
                 $frame = $this->openConditions[array_key_last($this->openConditions)];
-                $consider('condition', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+                $consider('condition', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]->tokenStart ?? -1);
             }
 
             if (! empty($this->openSwitches)) {
                 $frame = $this->openSwitches[array_key_last($this->openSwitches)];
-                $consider('switch', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]['tokenStart'] ?? -1);
+                $consider('switch', $frame['elementStackBase'], $this->nodes[$frame['blockIdx']]->tokenStart ?? -1);
             }
 
             if ($candidateKind === null) {
@@ -788,9 +788,9 @@ trait ProcessesDirectives
         $this->popIfTop($frame['switchDirectiveIdx']);
         $this->popIfTop($blockIdx);
 
-        $this->nodes[$blockIdx]['tokenCount'] = max(
-            $this->nodes[$blockIdx]['tokenCount'],
-            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        $this->nodes[$blockIdx]->tokenCount = max(
+            $this->nodes[$blockIdx]->tokenCount,
+            $endPos - $this->nodes[$blockIdx]->tokenStart
         );
     }
 
@@ -825,7 +825,7 @@ trait ProcessesDirectives
 
             $blockIdx = $frame['blockIdx'];
             $endPos = count($this->tokens);
-            $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->nodes[$blockIdx]->tokenCount = $endPos - $this->nodes[$blockIdx]->tokenStart;
         }
 
         while (! empty($this->openConditions)) {
@@ -836,7 +836,7 @@ trait ProcessesDirectives
 
             $blockIdx = $frame['blockIdx'];
             $endPos = count($this->tokens);
-            $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->nodes[$blockIdx]->tokenCount = $endPos - $this->nodes[$blockIdx]->tokenStart;
         }
 
         while (! empty($this->openDirectives)) {
@@ -847,7 +847,7 @@ trait ProcessesDirectives
             $this->popIfTop($blockIdx);
 
             $endPos = count($this->tokens);
-            $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+            $this->nodes[$blockIdx]->tokenCount = $endPos - $this->nodes[$blockIdx]->tokenStart;
         }
     }
 
@@ -1031,7 +1031,7 @@ trait ProcessesDirectives
      */
     protected function getDirectiveFrameTokenStart(array $frame): int
     {
-        return $this->nodes[$frame['startDirectiveIdx']]['tokenStart'] ?? -1;
+        return $this->nodes[$frame['startDirectiveIdx']]->tokenStart ?? -1;
     }
 
     /**
@@ -1039,7 +1039,7 @@ trait ProcessesDirectives
      */
     protected function getConditionFrameTokenStart(array $frame): int
     {
-        return $this->nodes[$frame['currentBranchIdx']]['tokenStart'] ?? -1;
+        return $this->nodes[$frame['currentBranchIdx']]->tokenStart ?? -1;
     }
 
     protected function openCondition(string $directiveName, int $startPos, int $tokenCount, ?string $argsContent = null): void
@@ -1180,7 +1180,7 @@ trait ProcessesDirectives
 
         $blockIdx = $frame['blockIdx'];
         $endPos = $startPos + $tokenCount;
-        $this->nodes[$blockIdx]['tokenCount'] = $endPos - $this->nodes[$blockIdx]['tokenStart'];
+        $this->nodes[$blockIdx]->tokenCount = $endPos - $this->nodes[$blockIdx]->tokenStart;
 
         $this->pos += $tokenCount;
     }
@@ -1219,9 +1219,9 @@ trait ProcessesDirectives
         $this->popIfTop($frame['currentBranchIdx']);
         $this->popIfTop($blockIdx);
 
-        $this->nodes[$blockIdx]['tokenCount'] = max(
-            $this->nodes[$blockIdx]['tokenCount'],
-            $endPos - $this->nodes[$blockIdx]['tokenStart']
+        $this->nodes[$blockIdx]->tokenCount = max(
+            $this->nodes[$blockIdx]->tokenCount,
+            $endPos - $this->nodes[$blockIdx]->tokenStart
         );
     }
 }

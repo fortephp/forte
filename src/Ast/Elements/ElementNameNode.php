@@ -49,7 +49,7 @@ class ElementNameNode extends Node implements Stringable
         }
 
         $flat = $this->flat();
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $tokenIdx = $flat['tokenStart'];
 
         // Go back to find '<' token (skip '/' and any whitespace)
@@ -83,7 +83,7 @@ class ElementNameNode extends Node implements Stringable
 
         // The parent element's token range includes the closing >
         $parentFlat = $this->document->getFlatNode($this->flat()['parent']);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $lastTokenIdx = $parentFlat['tokenStart'] + $parentFlat['tokenCount'] - 1;
 
         return $this->cachedClosingTagEnd = $tokens[$lastTokenIdx]['end'];

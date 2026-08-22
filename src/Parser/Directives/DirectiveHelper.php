@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Forte\Parser\Directives;
 
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Support\StringInterner;
 use Forte\Support\StringUtilities;
@@ -16,6 +17,16 @@ class DirectiveHelper
      * @param  array{type: int, start: int, end: int}  $token
      */
     public static function extractDirectiveName(array $token, string $source): string
+    {
+        return self::extractDirectiveNameFromToken($token, $source);
+    }
+
+    /**
+     * @internal
+     *
+     * @param  array{type: int, start: int, end: int}|TokenRecord  $token
+     */
+    public static function extractDirectiveNameFromToken(array|TokenRecord $token, string $source): string
     {
         $text = substr($source, $token['start'], $token['end'] - $token['start']);
 
@@ -30,7 +41,7 @@ class DirectiveHelper
      * Check if a matching terminator exists for a directive in the given token range.
      *
      * @param  string  $directiveName  The directive name, without @.
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      * @param  int  $startIdx  Start index (inclusive)
      * @param  int  $endIdx  End index (exclusive)
      */
@@ -56,7 +67,7 @@ class DirectiveHelper
                 continue;
             }
 
-            $name = self::extractDirectiveName($tokens[$i], $source);
+            $name = self::extractDirectiveNameFromToken($tokens[$i], $source);
             if ($name === $primaryTerminator) {
                 return true;
             }
@@ -69,7 +80,7 @@ class DirectiveHelper
      * Find the token index of a matching terminator for a directive (handles nesting).
      *
      * @param  string  $directiveName  The directive name, without @.
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      * @param  int  $startIdx  Start index (inclusive)
      * @param  int  $endIdx  End index (exclusive)
      * @param  int  $maxLookahead  Max directive tokens to check (ignored if index provided)
@@ -106,7 +117,7 @@ class DirectiveHelper
                 break;
             }
 
-            $name = self::extractDirectiveName($tokens[$i], $source);
+            $name = self::extractDirectiveNameFromToken($tokens[$i], $source);
 
             if ($name === $needle) {
                 $nesting++;
@@ -129,10 +140,10 @@ class DirectiveHelper
      * Collect all tokens from a directive until its matching terminator (inclusive).
      *
      * @param  string  $directiveName  The directive name, without @.
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      * @param  int  $startIdx  Start index (should be after the opening directive)
      * @param  int  $endIdx  End index (exclusive)
-     * @return array{tokens: array<int, array{type: int, start: int, end: int}>, consumed: int, terminatorIdx: int|null}
+     * @return array{tokens: array<int, array{type: int, start: int, end: int}|TokenRecord>, consumed: int, terminatorIdx: int|null}
      */
     public static function collectBlockTokens(
         string $directiveName,
@@ -157,7 +168,7 @@ class DirectiveHelper
             $collected[] = $token;
 
             if ($token['type'] === TokenType::Directive) {
-                $name = self::extractDirectiveName($token, $source);
+                $name = self::extractDirectiveNameFromToken($token, $source);
 
                 if ($name === $needle) {
                     $nest++;
@@ -211,7 +222,7 @@ class DirectiveHelper
     /**
      * Check if a directive has args following it in the token stream.
      *
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
      * @return array{hasArgs: bool, argsContent: string|null, consumed: int}
      */
     public static function checkDirectiveArgs(
@@ -270,8 +281,8 @@ class DirectiveHelper
      * Collect tokens until hitting any of the specified boundary directives (no nesting awareness).
      *
      * @param  array<int, string>  $boundaryDirectives
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
-     * @return array{tokens: array<int, array{type: int, start: int, end: int}>, consumed: int, boundaryIdx: int|null, boundaryName: string|null}
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
+     * @return array{tokens: array<int, array{type: int, start: int, end: int}|TokenRecord>, consumed: int, boundaryIdx: int|null, boundaryName: string|null}
      */
     public static function collectTokensUntilBoundary(
         array $boundaryDirectives,
@@ -292,7 +303,7 @@ class DirectiveHelper
             $token = $tokens[$i];
 
             if ($token['type'] === TokenType::Directive) {
-                $name = self::extractDirectiveName($token, $source);
+                $name = self::extractDirectiveNameFromToken($token, $source);
                 if (isset($boundaryLookup[$name])) {
                     $boundaryIdx = $i;
                     $boundaryName = $name;
@@ -317,8 +328,8 @@ class DirectiveHelper
      *
      * @param  array<int, string>  $boundaryDirectives  Directive names that stop the collection
      * @param  array<int, array{string, string}>  $nestedPairs  Pairs to track, e.g. [['switch', 'endswitch']]
-     * @param  array<int, array{type: int, start: int, end: int}>  $tokens
-     * @return array{tokens: array<int, array{type: int, start: int, end: int}>, consumed: int, boundaryIdx: int|null, boundaryName: string|null}
+     * @param  array<int, array{type: int, start: int, end: int}|TokenRecord>  $tokens
+     * @return array{tokens: array<int, array{type: int, start: int, end: int}|TokenRecord>, consumed: int, boundaryIdx: int|null, boundaryName: string|null}
      */
     public static function collectTokensUntilBoundaryWithNesting(
         array $boundaryDirectives,
@@ -350,7 +361,7 @@ class DirectiveHelper
             $token = $tokens[$i];
 
             if ($token['type'] === TokenType::Directive) {
-                $name = self::extractDirectiveName($token, $source);
+                $name = self::extractDirectiveNameFromToken($token, $source);
 
                 if (isset($nestedOpeners[$name])) {
                     $nestingLevels[$name] = ($nestingLevels[$name] ?? 0) + 1;

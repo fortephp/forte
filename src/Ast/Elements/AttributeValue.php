@@ -37,7 +37,7 @@ class AttributeValue implements IteratorAggregate, JsonSerializable, Stringable
         }
 
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $source = $this->document->source();
 
         if ($flat['tokenCount'] === 0) {
@@ -185,7 +185,7 @@ class AttributeValue implements IteratorAggregate, JsonSerializable, Stringable
     public function quote(): ?string
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         if ($flat['tokenCount'] === 0) {
             return null;
@@ -212,7 +212,7 @@ class AttributeValue implements IteratorAggregate, JsonSerializable, Stringable
     public function jsonSerialize(): array
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $tokenStart = $flat['tokenStart'];
         $startOffset = $tokenStart >= 0 && isset($tokens[$tokenStart]) ? $tokens[$tokenStart]['start'] : -1;
         $endTokenIdx = $tokenStart + $flat['tokenCount'] - 1;

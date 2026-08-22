@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Forte\Parser\Directives;
 
 use DirectoryIterator;
+use Forte\Internal\TokenRecord;
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Support\StringInterner;
 use Illuminate\View\Compilers\BladeCompiler;
@@ -195,6 +196,33 @@ class Directives
             if ($token['type'] === TokenType::Directive) {
                 $name = StringInterner::lower(substr($source, $token['start'], $token['end'] - $token['start']));
                 // Strip the @ prefix if present
+                if (str_starts_with($name, '@')) {
+                    $name = substr($name, 1);
+                }
+
+                if ($name !== '') {
+                    $directiveNames[] = $name;
+                }
+            }
+        }
+
+        $this->trainFromDirectiveNames($directiveNames);
+    }
+
+    /**
+     * Train directly from compact parser tokens.
+     *
+     * @internal
+     *
+     * @param  array<int, TokenRecord>  $tokens
+     */
+    public function trainCompact(array $tokens, string $source): void
+    {
+        $directiveNames = [];
+
+        foreach ($tokens as $token) {
+            if ($token->type === TokenType::Directive) {
+                $name = StringInterner::lower(substr($source, $token->start, $token->end - $token->start));
                 if (str_starts_with($name, '@')) {
                     $name = substr($name, 1);
                 }

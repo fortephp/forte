@@ -91,7 +91,7 @@ class ElementNode extends Node
 
         // Find where the opening tag ends to skip attribute-position children
         $openingTagEndPos = $this->findOpeningTagEndPosition();
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         while ($childIdx !== -1) {
             $childFlat = $this->document->getFlatNode($childIdx);
@@ -200,7 +200,7 @@ class ElementNode extends Node
     private function findTagNameEndOffset(): int
     {
         $flat = $this->flat();
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         // 1. ElementName child node gives an exact span.
         for ($childIdx = $flat['firstChild'] ?? -1; $childIdx !== -1;) {

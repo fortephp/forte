@@ -33,7 +33,7 @@ trait ProcessesEchoes
         $limit = count($tokens);
 
         while ($this->pos < $limit) {
-            $type = $tokens[$this->pos]['type'];
+            $type = $tokens[$this->pos]->type;
 
             if ($type === $endType) {
                 $this->pos++;

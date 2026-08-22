@@ -619,7 +619,7 @@ class Attributes implements ArrayAccess, Countable, IteratorAggregate
         }
 
         $wsNode = $this->document->getFlatNode($this->trailingWhitespaceIdx);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $source = $this->document->source();
 
         $startToken = $tokens[$wsNode['tokenStart']];
@@ -647,7 +647,7 @@ class Attributes implements ArrayAccess, Countable, IteratorAggregate
 
         $openingTagEndPos = $this->document
             ->findOpeningTagEndPosition($this->elementIndex);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         $lastWhitespaceIdx = -1;
 

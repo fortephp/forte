@@ -58,7 +58,7 @@ class StrayClosingTagNode extends Node implements Stringable
     private function extractTagName(): string
     {
         $flat = $this->flat();
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $source = $this->document->source();
 
         $tokenStart = $flat['tokenStart'];

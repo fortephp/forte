@@ -20,7 +20,7 @@ trait ManagesElementGenerics
             return null;
         }
 
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $source = $this->document->source();
 
         $genericTokenIdx = $flat['tokenStart'] + $genericOffset - 1;

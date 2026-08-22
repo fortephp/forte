@@ -226,7 +226,7 @@ trait ProcessesSwitchDirectives
         // Pop block from openElements
         $this->popIfTop($blockIdx);
 
-        $this->nodes[$blockIdx]['tokenCount'] = ($startPos + $tokenCount) - $this->nodes[$blockIdx]['tokenStart'];
+        $this->nodes[$blockIdx]->tokenCount = ($startPos + $tokenCount) - $this->nodes[$blockIdx]->tokenStart;
 
         // Advance position past directive
         $this->pos += $tokenCount;

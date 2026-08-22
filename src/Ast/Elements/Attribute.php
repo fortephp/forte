@@ -158,7 +158,7 @@ class Attribute implements JsonSerializable, Stringable
         }
 
         $valueNode = $this->document->getFlatNode($valueIdx);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $source = $this->document->source();
         $tokenTotal = count($tokens);
 
@@ -353,7 +353,7 @@ class Attribute implements JsonSerializable, Stringable
         }
 
         $nameNode = $this->document->getFlatNode($nameIdx);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         if ($nameNode['tokenCount'] === 0) {
             return $this->cachedType = 'static';
@@ -392,7 +392,7 @@ class Attribute implements JsonSerializable, Stringable
         }
 
         $valueNode = $this->document->getFlatNode($valueIdx);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         if ($valueNode['tokenCount'] === 0) {
             $this->cachedQuote = '';
@@ -703,7 +703,7 @@ class Attribute implements JsonSerializable, Stringable
     public function startOffset(): int
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $tokenStart = $flat['tokenStart'];
 
         if ($tokenStart < 0 || ! isset($tokens[$tokenStart])) {
@@ -719,7 +719,7 @@ class Attribute implements JsonSerializable, Stringable
     public function endOffset(): int
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $endTokenIdx = $flat['tokenStart'] + $flat['tokenCount'] - 1;
 
         if ($endTokenIdx < 0 || ! isset($tokens[$endTokenIdx])) {
@@ -842,7 +842,7 @@ class Attribute implements JsonSerializable, Stringable
     public function jsonSerialize(): array
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
 
         $startOffset = $flat['tokenStart'] >= 0 ? $tokens[$flat['tokenStart']]['start'] : -1;
         $endTokenIdx = $flat['tokenStart'] + $flat['tokenCount'] - 1;

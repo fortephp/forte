@@ -220,7 +220,7 @@ class AttributeName implements IteratorAggregate, JsonSerializable, Stringable
     public function jsonSerialize(): array
     {
         $flat = $this->document->getFlatNode($this->index);
-        $tokens = $this->document->getTokens();
+        $tokens = $this->document->getTokenRecords();
         $tokenStart = $flat['tokenStart'];
         $startOffset = $tokenStart >= 0 && isset($tokens[$tokenStart]) ? $tokens[$tokenStart]['start'] : -1;
         $endTokenIdx = $tokenStart + $flat['tokenCount'] - 1;
