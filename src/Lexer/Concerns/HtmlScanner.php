@@ -318,6 +318,14 @@ trait HtmlScanner
 
     protected function scanBeforeAttrName(): void
     {
+        if ($this->phpBlock) {
+            // Scan the PHP block, then resume at the next attribute.
+            $this->returnState = State::BeforeAttrName;
+            $this->scanData();
+
+            return;
+        }
+
         $start = $this->pos;
 
         // Skip whitespace

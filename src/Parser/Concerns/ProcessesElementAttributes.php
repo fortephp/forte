@@ -6,6 +6,7 @@ namespace Forte\Parser\Concerns;
 
 use Forte\Lexer\Tokens\TokenType;
 use Forte\Parser\ConstructScanner;
+use Forte\Parser\Directives\DirectiveHelper;
 use Forte\Parser\Extension\AttributeParserContext;
 use Forte\Parser\NodeKind;
 
@@ -417,17 +418,17 @@ trait ProcessesElementAttributes
                     tokenCount: $childTokenCount
                 );
             } elseif ($asValue && $type === TokenType::Directive) {
-                $dirEnd = $i + 1;
-                if ($dirEnd < $endPos && $this->tokens[$dirEnd]['type'] === TokenType::DirectiveArgs) {
-                    $dirEnd++;
-                }
-                $childTokenCount = $dirEnd - $i;
+                $directiveName = DirectiveHelper::extractDirectiveName($this->tokens[$i], $this->source);
+                $argsInfo = DirectiveHelper::checkDirectiveArgs($this->tokens, $this->source, $i + 1, $endPos);
+                $childTokenCount = 1 + $argsInfo['consumed'];
                 $childNode = $this->createNode(
                     kind: NodeKind::Directive,
                     parent: $parentIdx,
                     tokenStart: $i,
                     tokenCount: $childTokenCount
                 );
+                $childNode['name'] = $directiveName;
+                $childNode['args'] = $argsInfo['argsContent'];
             } else {
                 $childNode = $this->createNode(
                     kind: NodeKind::Text,
