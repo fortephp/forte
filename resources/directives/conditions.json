@@ -89,7 +89,15 @@
     "structure": {
       "role": "open",
       "condition": true,
-      "terminators": "elseif,endPushIf"
+      "terminators": "elsePushIf,elsePush,endPushIf"
+    }
+  },
+  {
+    "name": "elsePushIf,elsePush",
+    "args": true,
+    "structure": {
+      "role": "mixed",
+      "terminators": "elsePushIf,elsePush,endPushIf"
     }
   },
   {

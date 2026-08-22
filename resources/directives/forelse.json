@@ -10,7 +10,23 @@
   },
   {
     "name": "empty",
-    "args": false
+    "args": {
+      "allowed": true,
+      "required": false
+    },
+    "structure": {
+      "role": "open",
+      "condition": true,
+      "terminators": "elseif,endempty"
+    }
+  },
+  {
+    "name": "endempty",
+    "args": false,
+    "structure": {
+      "role": "close",
+      "condition": true
+    }
   },
   {
     "name": "endforelse",

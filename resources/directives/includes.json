@@ -1,6 +1,6 @@
 [
   {
-    "name": "each,include,includeIf,includeWhen,includeUnless,includeFirst",
+    "name": "each,include,includeIf,includeWhen,includeUnless,includeFirst,includeIsolated",
     "args": true
   }
 ]

@@ -328,6 +328,7 @@ class Directives
         return array_key_exists(StringInterner::lower($directive), $this->conditions);
     }
 
+    /** Determine whether a directive opens a block closed by a terminator. */
     public function isPaired(string $directive): bool
     {
         $directive = StringInterner::lower($directive);
@@ -339,7 +340,7 @@ class Directives
         $instance = $this->directives[$directive];
 
         return $instance->role === StructureRole::Opening
-            && count($instance->terminators) === 1
+            && $instance->terminators !== []
             && $instance->terminator !== null;
     }
 
@@ -661,6 +662,18 @@ class Directives
         return $out;
     }
 
+    /** @param string[] $terminators */
+    protected function resolvePrimaryTerminator(array $terminators): string
+    {
+        foreach ($terminators as $terminator) {
+            if (str_starts_with($terminator, 'end')) {
+                return $terminator;
+            }
+        }
+
+        return $terminators[array_key_last($terminators)];
+    }
+
     private function invalidateDirectiveCaches(): void
     {
         $this->conditionTerminatorsCache = null;
@@ -716,7 +729,7 @@ class Directives
                 $hasConditionLikeBranches = count($conditionLikeBranches) > 0;
 
                 if (count($terminators) > 0) {
-                    $terminator = $terminators[array_key_last($terminators)];
+                    $terminator = $this->resolvePrimaryTerminator($terminators);
                 }
 
                 $typeVal = $structure['type'] ?? null;

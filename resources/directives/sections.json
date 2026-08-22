@@ -1,6 +1,6 @@
 [
   {
-    "name": "hasSection,sectionMissing",
+    "name": "hasSection,sectionMissing,hasStack",
     "args": true,
     "structure": {
       "role": "open",

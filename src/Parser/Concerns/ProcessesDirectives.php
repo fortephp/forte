@@ -828,6 +828,20 @@ trait ProcessesDirectives
 
     protected function processConditionDirective(string $directiveName, int $startPos, int $tokenCount, ?string $argsContent = null): void
     {
+        $directive = $this->directives->getDirective($directiveName);
+
+        // An argument-bearing @empty can open its own condition inside @forelse.
+        if ($argsContent !== null
+            && $this->isBranchOfOpenDirective($directiveName)
+            && $this->directives->isCondition($directiveName)
+            && $directive !== null
+            && $directive->role === StructureRole::Opening
+            && $this->hasOwnConditionTerminatorBeforeOuterBoundary($directiveName, $startPos + $tokenCount)) {
+            $this->openCondition($directiveName, $startPos, $tokenCount, $argsContent);
+
+            return;
+        }
+
         if ($this->tryHandleConditionDirectiveWithOpenDirective($directiveName, $startPos, $tokenCount, $argsContent)) {
             return;
         }
@@ -854,7 +868,6 @@ trait ProcessesDirectives
             }
         }
 
-        $directive = $this->directives->getDirective($directiveName);
         if ($this->directives->isCondition($directiveName)
             && $directive !== null
             && $directive->role === StructureRole::Opening) {
@@ -864,6 +877,32 @@ trait ProcessesDirectives
         }
 
         $this->createStandaloneDirective($directiveName, $startPos, $tokenCount, $argsContent);
+    }
+
+    /** Check for the directive's own closer before the outer block boundary. */
+    protected function hasOwnConditionTerminatorBeforeOuterBoundary(string $directiveName, int $searchStart): bool
+    {
+        $directive = $this->directives->getDirective($directiveName);
+        if ($directive === null) {
+            return false;
+        }
+
+        $conditionTerminators = array_values(array_intersect(
+            $directive->terminators,
+            $this->directives->getConditionTerminators()
+        ));
+        if ($conditionTerminators === []) {
+            return false;
+        }
+
+        $searchEnd = $this->findOpenDirectiveBoundary([$directiveName], $searchStart);
+
+        return $this->directiveIndex()->findMatchingTerminator(
+            $directiveName,
+            $searchStart,
+            $conditionTerminators,
+            $searchEnd
+        ) !== null;
     }
 
     protected function tryHandleConditionDirectiveWithOpenDirective(

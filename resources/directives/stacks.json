@@ -12,7 +12,7 @@
     }
   },
   {
-    "name": "endpush,endpushOnce,endpreprend,endprependOnce",
+    "name": "endpush,endpushOnce,endprepend,endprependOnce",
     "args": false,
     "structure": {
       "role": "close"
