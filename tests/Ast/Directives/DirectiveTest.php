@@ -46,6 +46,8 @@ describe('Directive Parsing', function (): void {
             ->and($children[0]->asText()->getDocumentContent())->toBe('Before ')
             ->and($csrfDirective)->toBeInstanceOf(DirectiveNode::class)
             ->and($csrfDirective->nameText())->toBe('csrf')
+            ->and($csrfDirective->isAnyDirectiveNamed(['method', 'CSRF']))->toBeTrue()
+            ->and($csrfDirective->isAny(['auth', 'csr*']))->toBeTrue()
             ->and($csrfDirective->arguments())->toBeNull()
             ->and($children[2])->toBeInstanceOf(TextNode::class)
             ->and($children[2]->asText()->getDocumentContent())->toBe(' After')

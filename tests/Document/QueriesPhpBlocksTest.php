@@ -15,4 +15,12 @@ describe('Document PHP Blocks', function (): void {
             ->and($phpBlocks)->toBeInstanceOf(NodeCollection::class)
             ->and($phpBlocks->first())->toBeInstanceOf(PhpBlockNode::class);
     });
+
+    it('offers lazy fluent PHP and text collections', function (): void {
+        $doc = $this->parse('@php $x = 1; @endphp text <?php echo $x; ?>');
+
+        expect($doc->queryPhpBlocks())->toHaveCount(1)
+            ->and($doc->queryPhpTags())->toHaveCount(1)
+            ->and($doc->queryTextNodes())->toHaveCount(1);
+    });
 });

@@ -14,6 +14,15 @@ describe('Document Echoes', function (): void {
             ->and($allEchoes)->toBeInstanceOf(NodeCollection::class);
     });
 
+    it('offers lazy fluent echo collections', function (): void {
+        $doc = $this->parse('{{ $escaped }} {!! $raw !!} {{{ $triple }}}');
+
+        expect($doc->echoes())->toHaveCount(3)
+            ->and($doc->rawEchoes())->toHaveCount(1)
+            ->and($doc->escapedEchoes())->toHaveCount(1)
+            ->and($doc->tripleEchoes())->toHaveCount(1);
+    });
+
     it('can get raw echoes only', function (): void {
         $doc = $this->parse('{{ $escaped }} {!! $raw !!} {{{ $triple }}}');
 

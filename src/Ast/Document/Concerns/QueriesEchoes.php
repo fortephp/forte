@@ -12,6 +12,16 @@ use Illuminate\Support\LazyCollection;
 trait QueriesEchoes
 {
     /**
+     * Get all Blade echoes as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, EchoNode>
+     */
+    public function echoes(): LazyCollection
+    {
+        return $this->queryEchoes();
+    }
+
+    /**
      * @return LazyCollection<int, EchoNode>
      *
      * @internal
@@ -28,7 +38,17 @@ trait QueriesEchoes
      */
     public function getEchoes(): NodeCollection
     {
-        return NodeCollection::make($this->queryEchoes());
+        return NodeCollection::make($this->echoes());
+    }
+
+    /**
+     * Get raw Blade echoes as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, EchoNode>
+     */
+    public function rawEchoes(): LazyCollection
+    {
+        return $this->queryRawEchoes();
     }
 
     /**
@@ -51,7 +71,17 @@ trait QueriesEchoes
      */
     public function getRawEchoes(): NodeCollection
     {
-        return NodeCollection::make($this->queryRawEchoes());
+        return NodeCollection::make($this->rawEchoes());
+    }
+
+    /**
+     * Get escaped Blade echoes as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, EchoNode>
+     */
+    public function escapedEchoes(): LazyCollection
+    {
+        return $this->queryEscapedEchoes();
     }
 
     /**
@@ -74,7 +104,17 @@ trait QueriesEchoes
      */
     public function getEscapedEchoes(): NodeCollection
     {
-        return NodeCollection::make($this->queryEscapedEchoes());
+        return NodeCollection::make($this->escapedEchoes());
+    }
+
+    /**
+     * Get triple Blade echoes as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, EchoNode>
+     */
+    public function tripleEchoes(): LazyCollection
+    {
+        return $this->queryTripleEchoes();
     }
 
     /**
@@ -97,6 +137,6 @@ trait QueriesEchoes
      */
     public function getTripleEchoes(): NodeCollection
     {
-        return NodeCollection::make($this->queryTripleEchoes());
+        return NodeCollection::make($this->tripleEchoes());
     }
 }

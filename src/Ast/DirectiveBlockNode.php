@@ -111,7 +111,7 @@ class DirectiveBlockNode extends Node
      */
     public function isDirectiveNamed(string $name): bool
     {
-        return strcasecmp($this->nameText(), $name) === 0;
+        return $this->matchesDirectiveName($name);
     }
 
     /**

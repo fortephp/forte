@@ -160,6 +160,22 @@ HTML;
         });
     });
 
+    describe('expressive ancestor queries', function (): void {
+        it('queries ancestor collections, elements, and directive blocks', function (): void {
+            $doc = $this->parse('@foreach($items as $item)<FORM><div><input></div></FORM>@endforeach');
+            $input = $doc->findElementByName('input');
+
+            expect($input)->not->toBeNull()
+                ->and($input->ancestorNodes())->toHaveCount(4)
+                ->and($input->closestElement('form')?->tagNameText())->toBe('FORM')
+                ->and($input->closestElement(['section', 'div'])?->tagNameText())->toBe('div')
+                ->and($input->hasAncestorElement(['main', 'form']))->toBeTrue()
+                ->and($input->closestDirectiveBlock('foreach')?->nameText())->toBe('foreach')
+                ->and($input->hasAncestorDirective(['for', 'foreach']))->toBeTrue()
+                ->and($input->hasAncestorOfType(DirectiveBlockNode::class))->toBeTrue();
+        });
+    });
+
     describe('depth()', function (): void {
         it('returns 0 for root-level nodes', function (): void {
             $doc = $this->parse('<div>Hello</div>');

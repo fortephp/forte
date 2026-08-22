@@ -13,17 +13,27 @@ use Illuminate\Support\LazyCollection;
 trait QueriesComments
 {
     /**
-     * @return LazyCollection<int, CommentNode|BladeCommentNode>
+     * Get HTML and Blade comments as a lazy, fluent collection.
      *
-     * @internal
+     * @return LazyCollection<int, CommentNode|BladeCommentNode>
      */
-    protected function comments(): LazyCollection
+    public function queryComments(): LazyCollection
     {
         /** @var LazyCollection<int, CommentNode|BladeCommentNode> */
         return $this->queryNodesOfType(
             Node::class,
             fn (Node $n) => $n instanceof CommentNode || $n instanceof BladeCommentNode
         );
+    }
+
+    /**
+     * @return LazyCollection<int, CommentNode|BladeCommentNode>
+     *
+     * @internal
+     */
+    protected function comments(): LazyCollection
+    {
+        return $this->queryComments();
     }
 
     /**
@@ -37,13 +47,23 @@ trait QueriesComments
     }
 
     /**
+     * Get Blade comments as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, BladeCommentNode>
+     */
+    public function queryBladeComments(): LazyCollection
+    {
+        return $this->queryNodesOfType(BladeCommentNode::class);
+    }
+
+    /**
      * @return LazyCollection<int, BladeCommentNode>
      *
      * @internal
      */
     protected function bladeComments(): LazyCollection
     {
-        return $this->queryNodesOfType(BladeCommentNode::class);
+        return $this->queryBladeComments();
     }
 
     /**
@@ -57,13 +77,23 @@ trait QueriesComments
     }
 
     /**
+     * Get HTML comments as a lazy, fluent collection.
+     *
+     * @return LazyCollection<int, CommentNode>
+     */
+    public function queryHtmlComments(): LazyCollection
+    {
+        return $this->queryNodesOfType(CommentNode::class);
+    }
+
+    /**
      * @return LazyCollection<int, CommentNode>
      *
      * @internal
      */
     protected function htmlComments(): LazyCollection
     {
-        return $this->queryNodesOfType(CommentNode::class);
+        return $this->queryHtmlComments();
     }
 
     /**

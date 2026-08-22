@@ -502,6 +502,110 @@ abstract class Node implements JsonSerializable, Stringable
     }
 
     /**
+     * Get all descendants as a fluent node collection.
+     *
+     * @return NodeCollection<int, Node>
+     */
+    public function descendantNodes(TraversalOptions|bool $options = false): NodeCollection
+    {
+        $options = TraversalOptions::from($options);
+        $descendants = [];
+        $isFirst = true;
+
+        foreach ($this->traverseNodes($options) as $node) {
+            if ($isFirst) {
+                $isFirst = false;
+
+                continue;
+            }
+
+            $descendants[] = $node;
+        }
+
+        return NodeCollection::make($descendants);
+    }
+
+    /**
+     * Find the first descendant matching a predicate.
+     *
+     * @param  callable(Node): bool  $predicate
+     */
+    public function firstDescendantWhere(
+        callable $predicate,
+        TraversalOptions|bool $options = false
+    ): ?Node {
+        foreach ($this->descendantNodes($options) as $descendant) {
+            if ($predicate($descendant)) {
+                return $descendant;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Check whether any descendant matches a predicate.
+     *
+     * @param  callable(Node): bool  $predicate
+     */
+    public function hasDescendantWhere(
+        callable $predicate,
+        TraversalOptions|bool $options = false
+    ): bool {
+        return $this->firstDescendantWhere($predicate, $options) !== null;
+    }
+
+    /**
+     * Get descendant elements, optionally restricted by tag name.
+     *
+     * @param  string|array<string>|null  $names
+     * @return NodeCollection<int, ElementNode>
+     */
+    public function descendantElements(
+        string|array|null $names = null,
+        TraversalOptions|bool $options = false
+    ): NodeCollection {
+        /** @var NodeCollection<int, ElementNode> */
+        return $this->descendantNodes($options)
+            ->filter(fn (Node $node): bool => $node instanceof ElementNode
+                && ($names === null || $node->isTag($names)))
+            ->values();
+    }
+
+    /**
+     * Find the first descendant element, optionally by tag name.
+     *
+     * @param  string|array<string>|null  $names
+     */
+    public function firstDescendantElement(
+        string|array|null $names = null,
+        TraversalOptions|bool $options = false
+    ): ?ElementNode {
+        return $this->descendantElements($names, $options)->first();
+    }
+
+    /**
+     * Walk descendants in pre-order while optionally pruning subtrees.
+     *
+     * @param  callable(Node): void  $callback
+     * @param  (callable(Node): bool)|null  $shouldDescend
+     */
+    public function walkDescendants(callable $callback, ?callable $shouldDescend = null): void
+    {
+        foreach ($this->children() as $child) {
+            if (! $child instanceof self) {
+                continue;
+            }
+
+            $callback($child);
+
+            if ($shouldDescend === null || $shouldDescend($child)) {
+                $child->walkDescendants($callback, $shouldDescend);
+            }
+        }
+    }
+
+    /**
      * Get this node tree filtered to a specific node type.
      *
      * By default this uses normal children traversal only. Pass

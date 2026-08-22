@@ -25,6 +25,15 @@ describe('Document Directives', function (): void {
             ->and($blocks->first())->toBeInstanceOf(DirectiveBlockNode::class);
     });
 
+    it('offers lazy fluent directive collections with name filters', function (): void {
+        $doc = $this->parse('@include("a") @extends("layout") @if(true)@endif @foreach($xs as $x)@endforeach');
+
+        expect($doc->queryDirectives())->toHaveCount(2)
+            ->and($doc->queryDirectives(['include']))->toHaveCount(1)
+            ->and($doc->queryBlockDirectives())->toHaveCount(2)
+            ->and($doc->queryBlockDirectives(['if']))->toHaveCount(1);
+    });
+
     it('can find directive by name', function (): void {
         $doc = $this->parse('@include("header") @extends("layout") @include("footer")');
 

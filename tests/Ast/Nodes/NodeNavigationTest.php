@@ -148,6 +148,30 @@ describe('Node Navigation', function (): void {
         });
     });
 
+    describe('descendant queries', function (): void {
+        test('offers fluent filtering, lookup, and prunable walking', function (): void {
+            $doc = $this->parse('<main><section><p>A</p></section><template><p>B</p></template></main>');
+            $main = $doc->firstChild();
+            $visited = [];
+
+            $main->walkDescendants(
+                function ($node) use (&$visited): void {
+                    if ($node instanceof ElementNode) {
+                        $visited[] = strtolower($node->tagNameText());
+                    }
+                },
+                fn ($node): bool => ! $node instanceof ElementNode || ! $node->isTag('template'),
+            );
+
+            expect($main->descendantNodes())->toHaveCount(6)
+                ->and($main->descendantElements('p'))->toHaveCount(2)
+                ->and($main->firstDescendantElement(['article', 'section'])?->tagNameText())->toBe('section')
+                ->and($main->hasDescendantWhere(fn ($node): bool => $node instanceof TextNode
+                    && $node->getDocumentContent() === 'B'))->toBeTrue()
+                ->and($visited)->toBe(['section', 'p', 'template']);
+        });
+    });
+
     describe('with Blade directives', function (): void {
         test('directives have correct siblings', function (): void {
             $doc = $this->parse(
