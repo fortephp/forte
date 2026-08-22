@@ -141,4 +141,25 @@ BLADE;
             ->and($directive->whitespaceBetweenNameAndArgs())->toBe('  ')
             ->and($doc->render())->toBe($blade);
     });
+
+    test('modifier-style directive attributes remain intact through element rewrites', function (bool $acceptAll): void {
+        $blade = <<<'BLADE'
+<row @navigate.slideFromBottom('/transitions/detail', ['via' => strtoupper('Slide from Bottom')])
+     class="transition-row"></row>
+BLADE;
+        $options = ParserOptions::make()->acceptAllDirectives($acceptAll);
+        $doc = Document::parse($blade, $options);
+        $rewritten = $doc->rewriteWith(function ($path): void {
+            if ($path->isTag('row')) {
+                $path->setAttribute('tesseract-meta', 'source-token');
+            }
+        });
+
+        expect($rewritten->render())->toBe(
+            '<row @navigate.slideFromBottom(\'/transitions/detail\', [\'via\' => strtoupper(\'Slide from Bottom\')]) class="transition-row" tesseract-meta="source-token"></row>'
+        );
+    })->with([
+        'default directives' => false,
+        'accept all directives' => true,
+    ]);
 });

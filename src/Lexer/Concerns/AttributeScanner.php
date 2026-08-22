@@ -132,7 +132,7 @@ trait AttributeScanner
                     $isKnownDirective = $this->directives()->isDirective($name);
                 }
 
-                if ($isKnownDirective) {
+                if ($isKnownDirective && ! $this->hasModifierCallAt($tempPos)) {
                     // Emit attribute name so far if we have any
                     if ($this->pos > $start) {
                         $this->emitToken($tokenType, $start, $this->pos);
@@ -150,6 +150,16 @@ trait AttributeScanner
                 }
 
                 $this->pos++;
+
+                continue;
+            }
+
+            // Custom attribute DSLs may extend a directive-shaped name with
+            // modifiers before a parenthesized payload, for example
+            // `@navigate.fade('/route')`. Keep the payload opaque so `/`
+            // inside quoted arguments cannot be mistaken for a `/>` close.
+            if ($byte === '(' && $start < $this->pos && $this->source[$start] === '@') {
+                $this->skipBalancedParens();
 
                 continue;
             }
@@ -221,6 +231,38 @@ trait AttributeScanner
             $this->pos++;
             $this->state = State::BeforeAttrName;
         }
+    }
+
+    protected function hasModifierCallAt(int $pos): bool
+    {
+        if ($pos >= $this->len || $this->source[$pos] !== '.') {
+            return false;
+        }
+
+        while ($pos < $this->len && $this->source[$pos] === '.') {
+            $pos++;
+            $segmentStart = $pos;
+
+            while ($pos < $this->len) {
+                $byte = $this->source[$pos];
+
+                if (! ctype_alnum((string) $byte) && $byte !== '_') {
+                    break;
+                }
+
+                $pos++;
+            }
+
+            if ($pos === $segmentStart) {
+                return false;
+            }
+        }
+
+        while ($pos < $this->len && ctype_space((string) $this->source[$pos])) {
+            $pos++;
+        }
+
+        return $pos < $this->len && $this->source[$pos] === '(';
     }
 
     protected function scanAfterAttrName(): void
