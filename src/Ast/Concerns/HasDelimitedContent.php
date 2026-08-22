@@ -24,8 +24,8 @@ trait HasDelimitedContent
             $raw = substr((string) $raw, strlen((string) $open));
         }
 
-        if ($close !== null && str_ends_with((string) $raw, $close)) {
-            $raw = substr((string) $raw, 0, -strlen($close));
+        if (str_ends_with((string) $raw, (string) $close)) {
+            $raw = substr((string) $raw, 0, -strlen((string) $close));
         }
 
         return $this->cachedContent = $raw;
@@ -52,7 +52,7 @@ trait HasDelimitedContent
     /**
      * Get the opening and closing delimiters for this node type.
      *
-     * @return array{0: string, 1: string|null} [opening, closing]
+     * @return array{0: string, 1: string} [opening, closing]
      */
     abstract protected function getDelimiters(): array;
 }

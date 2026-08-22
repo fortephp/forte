@@ -107,10 +107,10 @@ class Document implements Countable, IteratorAggregate, Stringable
     protected ?string $filePath = null;
 
     /** @var array<int, string> */
-    private array $syntheticContent = [];
+    private array $syntheticContent;
 
     /** @var array<int, array<string, mixed>> */
-    private array $syntheticMeta = [];
+    private array $syntheticMeta;
 
     /** @var array<int, array<string, mixed>> */
     private array $nodeMetadata = [];

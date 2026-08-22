@@ -1,10 +1,17 @@
 * text=auto eol=lf
 
 .gitattributes   export-ignore
+.claude/         export-ignore
 .github/         export-ignore
 .gitignore       export-ignore
+.idea/           export-ignore
+.phpstan.cache/  export-ignore
+.phpunit.cache/  export-ignore
+composer.lock    export-ignore
 phpstan.neon     export-ignore
 phpunit.dist.xml export-ignore
+phpunit.xml      export-ignore
 readme.md        export-ignore
 rector.php       export-ignore
 tests/           export-ignore
+vendor/          export-ignore

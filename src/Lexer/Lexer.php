@@ -116,7 +116,6 @@ class Lexer
      *
      * @param  LexerExtension  $extension  The extension to register
      * @param  TokenTypeRegistry|null  $registry  Optional registry
-     * @return $this
      */
     public function registerExtension(LexerExtension $extension, ?TokenTypeRegistry $registry = null): self
     {
@@ -469,7 +468,6 @@ class Lexer
      *
      * @param  AttributeExtension  $extension  The extension to register
      * @param  TokenTypeRegistry|null  $registry  Optional token type registry
-     * @return $this
      */
     public function registerAttributeExtension(AttributeExtension $extension, ?TokenTypeRegistry $registry = null): self
     {

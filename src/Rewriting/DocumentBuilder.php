@@ -23,7 +23,7 @@ class DocumentBuilder
     /** @var array<int, array<string, mixed>> */
     private array $nodes = [];
 
-    private int $nodeCount = 0;
+    private int $nodeCount;
 
     /** @var array<int, int> */
     private array $parentStack = [];

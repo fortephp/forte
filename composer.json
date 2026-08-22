@@ -1,5 +1,6 @@
 {
     "name": "fortephp/forte",
+    "description": "A fault-tolerant Blade template parser and AST toolkit.",
     "type": "library",
     "license": "MIT",
     "keywords": [
@@ -34,6 +35,23 @@
         "psr-4": {
             "Forte\\Tests\\": "tests/"
         }
+    },
+    "archive": {
+        "exclude": [
+            "/.claude",
+            "/.github",
+            "/.idea",
+            "/.phpstan.cache",
+            "/.phpunit.cache",
+            "/.phpunit.result.cache",
+            "/composer.lock",
+            "/phpstan.neon",
+            "/phpunit.dist.xml",
+            "/phpunit.xml",
+            "/rector.php",
+            "/tests",
+            "/vendor"
+        ]
     },
     "config": {
         "allow-plugins": {

@@ -14,7 +14,6 @@ class ModifierManager
     /**
      * @param  string  $name  The modifier name
      * @param  string|callable  $template  Template string or callback
-     * @return $this
      */
     public function register(string $name, string|callable $template): static
     {
@@ -25,7 +24,6 @@ class ModifierManager
 
     /**
      * @param  array<string, string|callable>  $modifiers
-     * @return $this
      */
     public function registerMany(array $modifiers): static
     {

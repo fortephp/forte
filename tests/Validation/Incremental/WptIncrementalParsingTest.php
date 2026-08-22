@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 describe('WPT HTML Validation', function (): void {
     it('parses incrementally at multiple byte positions', function (string $path): void {
-        $this->assertIncrementalParsing(file_get_contents($path), 0.05);
+        $this->assertIncrementalParsing(file_get_contents($path));
     })->with('wpt html');
 
     it('parses and reconstructs full documents', function (string $path): void {

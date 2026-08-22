@@ -118,6 +118,7 @@ JSON;
         ));
     }
 
+    /** Assert that every document prefix lexes within the timeout and round-trips. */
     public function assertIncrementalParsing(
         string $content,
         float $timeout = 2.0,

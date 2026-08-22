@@ -188,7 +188,7 @@ class RewriteContext
         if ($syntheticAttrs !== null) {
             foreach ($syntheticAttrs as [$attrName, $attrValue]) {
                 if ($attrName === $name) {
-                    return $attrValue === true ? null : (string) $attrValue;
+                    return $attrValue === true ? null : $attrValue;
                 }
             }
         }
