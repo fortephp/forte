@@ -6,6 +6,50 @@ use Forte\Ast\Elements\ElementNode;
 use Forte\Ast\TextNode;
 
 describe('Script Tags', function (): void {
+    it('keeps tag-looking content opaque after a final boolean attribute', function (string $template, string $tag, string $content): void {
+        $document = $this->parse($template);
+        $element = $document->firstElement($tag);
+
+        expect($document->render())->toBe($template)
+            ->and($document->queryElements('img'))->toBeEmpty()
+            ->and($element)->toBeInstanceOf(ElementNode::class)
+            ->and($element->getChildren())->toHaveCount(1)
+            ->and($element->firstText())->toBeInstanceOf(TextNode::class)
+            ->and($element->firstText()->getContent())->toBe($content);
+    })->with([
+        'script boolean attribute' => ['<script defer>const image = "<img>";</script>', 'script', 'const image = "<img>";'],
+        'script boolean attribute with trailing whitespace' => ['<script defer >const image = "<img>";</script>', 'script', 'const image = "<img>";'],
+        'style boolean attribute' => ['<style scoped>.icon::before { content: "<img>"; }</style>', 'style', '.icon::before { content: "<img>"; }'],
+    ]);
+
+    it('treats raw-text and RCDATA element contents as text', function (string $tag): void {
+        $template = sprintf('<%1$s>A&amp;B <span>not an element</span></%1$s>', $tag);
+        $document = $this->parse($template);
+        $element = $document->firstElement($tag);
+
+        expect($document->render())->toBe($template)
+            ->and($document->queryElements('span'))->toBeEmpty()
+            ->and($element)->toBeInstanceOf(ElementNode::class)
+            ->and($element->getChildren())->toHaveCount(1)
+            ->and($element->firstText())->toBeInstanceOf(TextNode::class)
+            ->and($element->firstText()->getContent())->toBe('A&amp;B <span>not an element</span>');
+    })->with([
+        'iframe',
+        'noembed',
+        'noframes',
+        'textarea',
+        'title',
+        'xmp',
+    ]);
+
+    it('does not treat a namespaced script element as HTML raw text', function (): void {
+        $template = '<native:script><img></native:script>';
+        $document = $this->parse($template);
+
+        expect($document->render())->toBe($template)
+            ->and($document->queryElements('img'))->toHaveCount(1);
+    });
+
     it('preserves script content with nested closing tags', function (): void {
         $template = '<script>document.write("</span>");</script>';
 
