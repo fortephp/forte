@@ -11,7 +11,6 @@ trait ManagesMetadata
      *
      * @param  string  $key  The metadata key
      * @param  mixed  $value  The metadata value
-     * @return $this
      */
     public function setData(string $key, mixed $value): static
     {
@@ -45,7 +44,6 @@ trait ManagesMetadata
      * Remove metadata from this node.
      *
      * @param  string  $key  The metadata key to remove
-     * @return $this
      */
     public function removeData(string $key): static
     {
@@ -68,7 +66,6 @@ trait ManagesMetadata
      * Add a tag to this node.
      *
      * @param  string  $tag  The tag to add
-     * @return $this
      */
     public function tag(string $tag): static
     {
@@ -81,7 +78,6 @@ trait ManagesMetadata
      * Remove a tag from this node.
      *
      * @param  string  $tag  The tag to remove
-     * @return $this
      */
     public function untag(string $tag): static
     {

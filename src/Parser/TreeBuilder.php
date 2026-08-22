@@ -118,7 +118,6 @@ class TreeBuilder
      * @param  int  $elements  Maximum element nesting depth (default: 512)
      * @param  int  $directives  Maximum directive nesting depth (default: 256)
      * @param  int  $conditions  Maximum condition nesting depth (default: 256)
-     * @return $this
      */
     public function setDepthLimits(int $elements = 512, int $directives = 256, int $conditions = 256): self
     {
@@ -549,7 +548,6 @@ class TreeBuilder
      *
      * @param  AttributeExtension  $extension  The extension to register
      * @param  NodeKindRegistry|null  $registry  Optional node kind registry
-     * @return $this
      */
     public function registerAttributeExtension(AttributeExtension $extension, ?NodeKindRegistry $registry = null): self
     {
