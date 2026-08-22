@@ -24,6 +24,16 @@ describe('Text Trivia', function (): void {
             ->and($text->getSemanticContent())->toBe('A&amp;B');
     });
 
+    it('decodes character references in RCDATA without parsing tag-looking content', function (): void {
+        $document = $this->parse('<textarea>A&amp;B <strong>literal</strong></textarea>');
+        $text = $document->elements->first()->firstText();
+
+        expect($document->queryElements('strong'))->toBeEmpty()
+            ->and($text)->toBeInstanceOf(TextNode::class)
+            ->and($text->getContent())->toBe('A&amp;B <strong>literal</strong>')
+            ->and($text->getSemanticContent())->toBe('A&B <strong>literal</strong>');
+    });
+
     it('parses leading whitespace, content, and trailing whitespace', function (): void {
         $trivia = TriviaParser::parse("  \n  Hello World  \n  ");
 

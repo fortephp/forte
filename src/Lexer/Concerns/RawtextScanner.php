@@ -102,7 +102,8 @@ trait RawtextScanner
                 continue;
             }
 
-            // Check for closing tag: </script> or </style> (with optional whitespace before >)
+            // Check for this special-text element's closing tag (with optional
+            // whitespace before >).
             if ($byte === '<') {
                 if ($this->pos + 2 + $tagNameLen <= $len &&
                     $this->source[$this->pos + 1] === '/') {

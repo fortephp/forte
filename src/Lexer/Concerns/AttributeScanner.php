@@ -200,7 +200,7 @@ trait AttributeScanner
             // Boolean attribute, end of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = State::Data;
+            $this->state = $this->stateAfterTagClose();
         } elseif ($char === '/') {
             // Boolean attribute, self-closing tag
             $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);
@@ -291,7 +291,7 @@ trait AttributeScanner
             // Boolean attribute, end of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = State::Data;
+            $this->state = $this->stateAfterTagClose();
         } elseif ($char === '/') {
             // Boolean attribute, self-closing tag
             $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);
@@ -386,7 +386,7 @@ trait AttributeScanner
             // Empty attribute value, end of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = State::Data;
+            $this->state = $this->stateAfterTagClose();
         } else {
             // Unquoted attribute value
             $this->state = State::AttrValueUnquoted;
@@ -703,7 +703,7 @@ trait AttributeScanner
             // Boolean attribute, end of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = State::Data;
+            $this->state = $this->stateAfterTagClose();
         } elseif ($char === '/') {
             // Boolean attribute, self-closing tag
             $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);

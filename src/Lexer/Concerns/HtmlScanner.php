@@ -9,15 +9,33 @@ use Forte\Lexer\Tokens\TokenType;
 
 trait HtmlScanner
 {
-    private function checkRawtextMode(): State
+    private const SPECIAL_TEXT_ELEMENTS = [
+        'iframe' => true,
+        'noembed' => true,
+        'noframes' => true,
+        'script' => true,
+        'style' => true,
+        'textarea' => true,
+        'title' => true,
+        'xmp' => true,
+    ];
+
+    private function stateAfterTagClose(): State
     {
-        // Only enter rawtext for opening tags, not closing tags or self-closing
+        // Only opening tags enter a special text mode. Self-closing tags bypass
+        // this method, and closing tags always return to ordinary data parsing.
         if ($this->isClosingTag) {
             return State::Data;
         }
 
         $tagNameLower = strtolower($this->currentTagName);
-        if ($tagNameLower === 'script' || $tagNameLower === 'style') {
+
+        // Raw-text and RCDATA elements share the same delimiter scanner here:
+        // both consume tag-looking content until their own closing tag. Their
+        // semantic difference is preserved by TextNode, which decodes character
+        // references for title/textarea and leaves raw-text element content
+        // literal.
+        if (isset(self::SPECIAL_TEXT_ELEMENTS[$tagNameLower])) {
             $this->rawtextTagName = $tagNameLower;
 
             return State::RawText;
@@ -84,7 +102,7 @@ trait HtmlScanner
                 if ($this->source[$this->pos] === '>') {
                     $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
                     $this->pos++;
-                    $this->state = $this->checkRawtextMode();
+                    $this->state = $this->stateAfterTagClose();
                 } elseif ($this->source[$this->pos] === '/') {
                     // Self-closing tag (never enters rawtext mode)
                     $this->emitToken(TokenType::Slash, $this->pos, $this->pos + 1);
@@ -277,7 +295,7 @@ trait HtmlScanner
             // End of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = $this->checkRawtextMode();
+            $this->state = $this->stateAfterTagClose();
         } elseif ($ch === '/') {
             // Self-closing tag: <br/>
             $slashStart = $this->pos;
@@ -506,7 +524,7 @@ trait HtmlScanner
             // End of tag
             $this->emitToken(TokenType::GreaterThan, $this->pos, $this->pos + 1);
             $this->pos++;
-            $this->state = $this->checkRawtextMode();
+            $this->state = $this->stateAfterTagClose();
         } elseif ($ch === '/') {
             // Possible self-closing tag: />
             $slashStart = $this->pos;
