@@ -34,16 +34,14 @@ class ComponentNode extends ElementNode
         $manager = $this->document->getComponentManager();
         $this->cachedMetadata = $manager->parseComponentName($tagName);
 
-        if ($this->cachedMetadata === null) {
-            $this->cachedMetadata = new ComponentMetadata(
-                type: 'blade',
-                prefix: 'x-',
-                componentName: $tagName,
-                nameParts: [$tagName],
-                isSlot: false,
-                slotName: null
-            );
-        }
+        $this->cachedMetadata ??= new ComponentMetadata(
+            type: 'blade',
+            prefix: 'x-',
+            componentName: $tagName,
+            nameParts: [$tagName],
+            isSlot: false,
+            slotName: null
+        );
 
         return $this->cachedMetadata;
     }

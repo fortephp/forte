@@ -34,9 +34,7 @@ abstract class TokenSplitter extends TextScanner
 
     protected function appendToCurrentPart(string $content): void
     {
-        if (! isset($this->parts[$this->currentPartIndex])) {
-            $this->parts[$this->currentPartIndex] = '';
-        }
+        $this->parts[$this->currentPartIndex] ??= '';
 
         $this->parts[$this->currentPartIndex] .= $content;
     }

@@ -19,9 +19,7 @@ trait QueriesNodes
 
     private function getXPathEngine(): XPathQuery
     {
-        if ($this->xpathEngine === null) {
-            $this->xpathEngine = new XPathQuery($this);
-        }
+        $this->xpathEngine ??= new XPathQuery($this);
 
         return $this->xpathEngine;
     }

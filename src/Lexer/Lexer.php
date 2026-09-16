@@ -120,9 +120,7 @@ class Lexer
      */
     public function registerExtension(LexerExtension $extension, ?TokenTypeRegistry $registry = null): self
     {
-        if ($this->extensions === null) {
-            $this->extensions = new ExtensionStack;
-        }
+        $this->extensions ??= new ExtensionStack;
 
         $this->extensions->add($extension);
         $extension->registerTokenTypes($registry ?? app(TokenTypeRegistry::class));

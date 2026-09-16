@@ -60,9 +60,7 @@ trait ManagesOffsets
      */
     private function getLineIndex(): LineIndex
     {
-        if ($this->lineIndex === null) {
-            $this->lineIndex = LineIndex::build($this->source);
-        }
+        $this->lineIndex ??= LineIndex::build($this->source);
 
         return $this->lineIndex;
     }

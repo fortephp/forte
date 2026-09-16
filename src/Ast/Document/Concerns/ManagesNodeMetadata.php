@@ -17,9 +17,7 @@ trait ManagesNodeMetadata
      */
     public function setNodeData(int $nodeIndex, string $key, mixed $value): void
     {
-        if (! isset($this->nodeMetadata[$nodeIndex])) {
-            $this->nodeMetadata[$nodeIndex] = [];
-        }
+        $this->nodeMetadata[$nodeIndex] ??= [];
 
         $this->nodeMetadata[$nodeIndex][$key] = $value;
     }
@@ -77,9 +75,7 @@ trait ManagesNodeMetadata
      */
     public function tagNode(int $nodeIndex, string $tag): void
     {
-        if (! isset($this->nodeTags[$nodeIndex])) {
-            $this->nodeTags[$nodeIndex] = [];
-        }
+        $this->nodeTags[$nodeIndex] ??= [];
 
         $this->nodeTags[$nodeIndex][$tag] = true;
     }

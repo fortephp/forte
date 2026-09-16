@@ -583,9 +583,7 @@ class TreeBuilder
 
     public function registerExtension(TreeExtension $extension, ?NodeKindRegistry $registry = null): self
     {
-        if ($this->extensions === null) {
-            $this->extensions = new ExtensionStack;
-        }
+        $this->extensions ??= new ExtensionStack;
 
         $this->extensions->add($extension);
         $extension->registerNodeKinds($registry ?? app(NodeKindRegistry::class));
@@ -674,9 +672,7 @@ class TreeBuilder
 
     public function directiveIndex(): DirectiveTokenIndex
     {
-        if ($this->directiveIndex === null) {
-            $this->directiveIndex = new DirectiveTokenIndex($this->tokens, $this->source);
-        }
+        $this->directiveIndex ??= new DirectiveTokenIndex($this->tokens, $this->source);
 
         return $this->directiveIndex;
     }

@@ -36,10 +36,8 @@ class RewriteBuilder
     {
         $node = $this->document->findElementByName($tagName);
 
-        if ($node === null) {
-            // Try components
-            $node = $this->document->findComponentByName($tagName);
-        }
+        // Try components
+        $node ??= $this->document->findComponentByName($tagName);
 
         return new Selection($node !== null ? [$node] : [], $this);
     }

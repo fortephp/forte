@@ -38,9 +38,7 @@ trait ManagesChildren
      */
     public function getChildren(): array
     {
-        if ($this->childrenCache === null) {
-            $this->childrenCache = array_values(iterator_to_array($this->children()));
-        }
+        $this->childrenCache ??= array_values(iterator_to_array($this->children()));
 
         return $this->childrenCache;
     }

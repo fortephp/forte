@@ -178,9 +178,7 @@ class ParserOptions
      */
     public function getDirectives(): Directives
     {
-        if ($this->directives === null) {
-            $this->directives = Directives::withDefaults();
-        }
+        $this->directives ??= Directives::withDefaults();
 
         if ($this->acceptAllDirectives) {
             $this->directives->setAcceptAll(true);
@@ -206,11 +204,9 @@ class ParserOptions
      */
     public function getExtensionRegistry(): ExtensionRegistry
     {
-        if ($this->extensionRegistry === null) {
-            $this->extensionRegistry = function_exists('app')
-                ? app(ExtensionRegistry::class)
-                : new ExtensionRegistry(new TokenTypeRegistry, new NodeKindRegistry);
-        }
+        $this->extensionRegistry ??= function_exists('app')
+            ? app(ExtensionRegistry::class)
+            : new ExtensionRegistry(new TokenTypeRegistry, new NodeKindRegistry);
 
         return $this->extensionRegistry;
     }
